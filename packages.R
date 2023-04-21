@@ -1,0 +1,9 @@
+tidyverse
+cowplot
+extrafont
+ggforce
+comprehenr
+stringr
+LaplacesDemon
+lutz
+lubridate
