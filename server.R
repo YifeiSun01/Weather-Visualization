@@ -30,11 +30,6 @@ options(warn=-1)
 weather_files_path = "data/weather data"
 air_files_path = "data/air quality data"
 
-weather_plots_path = "plots/weather plots"
-daytime_plots_path = "plots/daytime plots"
-weather_condition_plots_path = "plots/weather condition plots"
-air_quality_plots_path = "plots/air quality plots"
-
 weather_files = list.files(weather_files_path,pattern = "\\.csv$")
 air_files = list.files(air_files_path,pattern = "\\.csv$")
 
@@ -74,7 +69,7 @@ viz_cols_names = c("Latitude (\u00B0)" ,             "Longitude (\u00B0)"    ,
                    "Temperature Solar Radiation Correlation Coefficient" )
 viz_cols_mapping = hash(as.list(viz_cols_names),as.list(viz_cols))
 
-plot_weather_precipitation = function(filname,unit,save_path,extension){
+plot_weather_precipitation_return = function(filname, unit){
   df = read.csv(filname)
   df$datetime=as.Date(df$datetime, origin = "2022-01-01")
   weather_conditions = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
@@ -108,6 +103,7 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
   opacity_2 = 0.3
   offset_2 = -30
   ratio_3 = 0.85
+  temp_size = 1.5
   
   p = ggplot(df,aes(datetime, origin="2022-01-01"))+
     geom_ribbon(aes(ymin=0, ymax=4*(df$snowdepth)^(0.5)), fill="#601EF9", col="#601EF9", alpha=0.15)+
@@ -118,8 +114,8 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
     geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#0047ab", col="#00008B", size = 1.5,alpha = opacity_1*df[["Rain"]])+
     geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#7034fa", col="#301934", size = 1.5,alpha = opacity_1*df[["Snow"]])+
     geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#330044", col="#5A5A5A", size = 1.5,alpha = opacity_2*df[["Freezing Drizzle/Freezing Rain"]])+
-    geom_linerange(aes(datetime, ymin = feelslikemin, ymax = feelslikemax, color = ((feelslike-lower_y-10)/(upper_y-3-lower_y-10))), size = 1, alpha = 0.5) +
-    geom_linerange(aes(datetime, ymin = tempmin, ymax = tempmax, color = ((temp-lower_y-10)/(upper_y-3-lower_y-10))), size = 1, alpha = 1) +
+    geom_linerange(aes(datetime, ymin = feelslikemin, ymax = feelslikemax, color = ((feelslike-lower_y-10)/(upper_y-3-lower_y-10))), size = temp_size, alpha = 0.5) +
+    geom_linerange(aes(datetime, ymin = tempmin, ymax = tempmax, color = ((temp-lower_y-10)/(upper_y-3-lower_y-10))), size = temp_size, alpha = 1) +
     scale_color_gradientn(colors=my_colors, values=my_values, limits=c(0,1)) + 
     scale_x_date(labels = date_format("%B"), breaks = date_breaks("month")) + 
     ylim(lower_y, upper_y+10) + 
@@ -133,8 +129,8 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
       y = NULL, 
       size = 30
     )+
-    theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 13,colour="#18191a",angle=myAngle))+
+    theme(plot.title = element_text(hjust = 0.5, size = 25)) +
+    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 17,colour="#18191a",angle=myAngle))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_line(size=.5, color="lightgray"),
@@ -158,7 +154,7 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
   step=0.03648
   
   x_cen = 0.502
-  y_cen = 0.490
+  y_cen = 0.4874
   
   block_step = 0.04
   block_step_1 = 0.04
@@ -203,7 +199,7 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
       data = data.frame(x = x_cen-0.013+rep(0,10),
                         y = y_cen+0.0315+to_vec(for(i in 0:time) i*step), label = temp_list),
       aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 10/.pt,
+      hjust = 0.5, vjust = 0.1, angle = 0, size = 13/.pt,
       color = "black",
       inherit.aes = FALSE,alpha=0.8
     )+
@@ -211,7 +207,7 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
       data = data.frame(x = x_cen+0.014,
                         y = y_cen+0.0315+time*step, label = temp_label),
       aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 10/.pt,
+      hjust = 0.5, vjust = 0.1, angle = 0, size = 13/.pt,
       color = "black",
       inherit.aes = FALSE,alpha=0.8
     )+
@@ -265,14 +261,12 @@ plot_weather_precipitation = function(filname,unit,save_path,extension){
     geom_linerange(aes(x = start_x_1, ymin = start_y_1+block_step_1-r, ymax = start_y_1+block_step_1+r), colour="#0047ab", alpha=0.45, size=15)+
     geom_linerange(aes(x = start_x_1, ymin = start_y_1+2*block_step_1-r, ymax = start_y_1+2*block_step_1+r), colour="#7034fa", alpha=0.45, size=15)+
     geom_linerange(aes(x = start_x_1, ymin = start_y_1+3*block_step_1-r, ymax = start_y_1+3*block_step_1+r), colour="#330044", alpha=0.45, size=15)
-  
-  ggsave(file=paste(save_path,"/",city_name," ","Weather Precipitation ", unit," 2022.",extension,sep=""), plot=image, width=10, height=10)
+  return (image)
 }
 
 
 ## -------------------------------------------------------------------------------------------------------------
-
-plot_daytime=function(filname,save_path,extension){
+plot_daytime_return=function(filname){
   df = read.csv(filname)
   
   options(warn=-1)
@@ -293,18 +287,18 @@ plot_daytime=function(filname,save_path,extension){
       } 
     }
   }
-  
-  opacity=0.97
+  opacity_1=0.92
+  opacity=0.95
   line_width_1=0.4
   line_width_2=0.4
   line_opicaty_1=1
   line_opicaty_2=0.01
   num_opacity = 1
   color_1 = "#ffffff"
-  color_2 = "#333333"
-  color_3 = "#808080"
+  color_2 = "#545454"
+  color_3 = "#949494"
   myAngle <-seq(0,-360,length.out = 13)
-  num_offset = 1/30
+  num_offset = 1/50
   thick_line_width = 0.8
   thick_line_color = "#ADD8E6"
   
@@ -320,7 +314,7 @@ plot_daytime=function(filname,save_path,extension){
   
   full_time = convert_time(times("23:59:59"))
   offset = 0.6
-  num_size = 4
+  num_size = 5
   
   list_time_str = to_vec(for (i in 0:24) as.character(i))
   
@@ -329,7 +323,7 @@ plot_daytime=function(filname,save_path,extension){
   image = ggplot(df,aes(datetime, origin = "2022-01-01"))+
     geom_ribbon(aes(ymin=list_time_ratio[1], ymax=convert_time(df$sunrise)/full_time+offset), fill="#000000", col="#000000", alpha=0.95,size=1)+
     geom_ribbon(aes(ymin=convert_time(df$sunset+0.01)/full_time+offset, ymax=list_time_ratio[25]), fill="#000000", col="#000000", alpha=0.95,size=1)+
-    geom_ribbon(aes(ymin=ifelse(is.na(df$sunrise),list_time_ratio[1],list_time_ratio[1]), ymax=ifelse(is.na(df$sunset),list_time_ratio[25],list_time_ratio[1])), fill="#000000", col="#000000", alpha=opacity,size=1)+
+    geom_ribbon(aes(ymin=ifelse(is.na(df$sunrise),list_time_ratio[1],list_time_ratio[1]), ymax=ifelse(is.na(df$sunset),list_time_ratio[25],list_time_ratio[1])), fill="#000000", col="#000000", alpha=opacity_1,size=1)+
     
     geom_ribbon(aes(ymin=list_time_ratio[2], ymax=list_time_ratio[2]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
     geom_ribbon(aes(ymin=list_time_ratio[3], ymax=list_time_ratio[3]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
@@ -364,10 +358,10 @@ plot_daytime=function(filname,save_path,extension){
     
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
                                 y = rep(list_time_ratio[1]+num_offset,4), label = rep(list_time_str[1],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
+              aes(x,y, label=label), color = "#FFFFFF", alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
                                 y = rep(list_time_ratio[4]+num_offset,4), label = rep(list_time_str[4],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
+              aes(x,y, label=label), color = "#FFFFFF", alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
                                 y = rep(list_time_ratio[7]+num_offset,4), label = rep(list_time_str[7],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
@@ -375,30 +369,29 @@ plot_daytime=function(filname,save_path,extension){
                                 y = rep(list_time_ratio[10]+num_offset,4), label = rep(list_time_str[10],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[13]+num_offset,4), label = rep(list_time_str[13],4)),
+                                y = rep(list_time_ratio[13],4), label = rep(list_time_str[13],4)),
+              aes(x,y, label=label), color = "#000000", alpha=num_opacity,size=num_size)+
+    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
+                                y = rep(list_time_ratio[16],4), label = rep(list_time_str[16],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[16]+num_offset,4), label = rep(list_time_str[16],4)),
+                                y = rep(list_time_ratio[19],4), label = rep(list_time_str[19],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[19]+num_offset,4), label = rep(list_time_str[19],4)),
+                                y = rep(list_time_ratio[22],4), label = rep(list_time_str[22],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
     geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[22]+num_offset,4), label = rep(list_time_str[22],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[25]+num_offset,4), label = rep(list_time_str[25],4)),
+                                y = rep(list_time_ratio[25],4), label = rep(list_time_str[25],4)),
               aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
     
     geom_text(
       data = data.frame(x = df$datetime[1],
                         y = 0, label = city_name),
       aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 30/.pt,
+      hjust = 0.5, vjust = 0.1, angle = 0, size = 35/.pt,
       color = "#333333",
       inherit.aes = FALSE
     )+
-    
     scale_x_date(labels = date_format("%B"), breaks = date_breaks("month"))+
     scale_y_time(limits= c(0,offset+1))+theme_bw()+
     theme( # remove the vertical grid lines
@@ -413,16 +406,16 @@ plot_daytime=function(filname,save_path,extension){
       axis.title.y = element_blank()
     )+ 
     coord_polar(theta="x",start=0)+
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 13,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 20,colour="#18191a",angle=myAngle))+
     labs(
       title = paste(city_name,"Daytime Radial 2022"),
       subtitle = " ",
       caption = " ",
       x = NULL,
       y = NULL, 
-      size = 30
+      size = 50
     )+
-    theme(plot.title = element_text(hjust = 0.5))+ylim(c(0,1+offset+0.1))
+    theme(plot.title = element_text(hjust = 0.5, size = 25))
   
   step_1 = 0.02
   step_2 = 0.05
@@ -441,15 +434,12 @@ plot_daytime=function(filname,save_path,extension){
       color = "black",
       inherit.aes = FALSE,alpha=0.8
     )
-  
-  ggsave(file=paste(save_path,"/",city_name," ","Daytime 2022.",extension,sep=""), plot=image_2, width=10, height=10)
+  return (image_2)
 }
 
 
-
 ## -------------------------------------------------------------------------------------------------------------
-
-plot_weather_condition=function(filname,save_path,extension){
+plot_weather_condition_return=function(filname){
   
   options(warn=-1)
   
@@ -473,9 +463,9 @@ plot_weather_condition=function(filname,save_path,extension){
   opacity_1=1
   opacity_2=0.7
   opacity=0.7
-  size_ratio_1 = 4.2
-  size_ratio_clear = 4.1
-  size_ratio = 5
+  size_ratio_1 = 7.7
+  size_ratio_clear = 7.5
+  size_ratio = 7.6
   inner_radius = 10
   radius_list = to_vec(for (i in 0:5) i*step_2)+inner_radius
   
@@ -500,15 +490,14 @@ plot_weather_condition=function(filname,save_path,extension){
       data = data.frame(x = df$datetime[1],
                         y = 0, label = city_name),
       aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 18/.pt,
+      hjust = 0.5, vjust = 0.1, angle = 0, size = 30/.pt,
       color = "#333333",alpha=0.7,
       inherit.aes = FALSE
     )+
-    
     coord_polar()+
     theme_bw()+
     theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 11,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a",angle=myAngle))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_blank(),
@@ -527,45 +516,46 @@ plot_weather_condition=function(filname,save_path,extension){
       y = NULL, 
       size = 20
     )+
-    theme(plot.title = element_text(hjust = 0.5))
+    theme(plot.title = element_text(hjust = 0.5, size=25))
   
   step = 0.02
   weather_conditions_1 = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
                            "Freezing Rain")
   
-  block_size = 10
+  block_size = 15
   block_opacity = 0.8
   block_offset = 0.002
-  
+  block_x = 0.81
+    
   image_1 = ggdraw(image)+
     geom_text(
       data = data.frame(x = 0.85+rep(0,7),
                         y = 0.8+to_vec(for(i in 1:length(weather_conditions)) i*step),
                         label = weather_conditions_1),
       aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 9/.pt,
+      hjust = 0, angle = 0, size = 15/.pt,
       color = "black",
       inherit.aes = FALSE,alpha=0.8
     )+
-    geom_linerange(aes(x=0.82,ymin=0.81, ymax=0.81+step-block_offset), color = "#F9D71C", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+step, ymax=0.81+2*step-block_offset), color = "#ADD8E6", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+2*step, ymax=0.81+3*step-block_offset), color = "#3A9BDC", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+3*step, ymax=0.81+4*step-block_offset), color = "#0047ab", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+4*step, ymax=0.81+5*step-block_offset), color = "#7034fa", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+5*step, ymax=0.81+6*step-block_offset), color = "#1d2951", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.81+6*step, ymax=0.81+7*step-block_offset), color = "#330044", alpha=block_opacity,size=block_size)
-  
-  ggsave(file=paste(save_path,"/",city_name," ","Weather Condition 2022.",extension,sep=""), plot=image_1, width=6, height=6)
+    geom_linerange(aes(x=block_x,ymin=0.81, ymax=0.81+step-block_offset), color = "#F9D71C", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+step, ymax=0.81+2*step-block_offset), color = "#ADD8E6", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+2*step, ymax=0.81+3*step-block_offset), color = "#3A9BDC", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+3*step, ymax=0.81+4*step-block_offset), color = "#0047ab", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+4*step, ymax=0.81+5*step-block_offset), color = "#7034fa", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+5*step, ymax=0.81+6*step-block_offset), color = "#1d2951", alpha=block_opacity,size=block_size)+
+    geom_linerange(aes(x=block_x,ymin=0.81+6*step, ymax=0.81+7*step-block_offset), color = "#330044", alpha=block_opacity,size=block_size)
+  return (image_1)
 }
 
 
+
 ## -------------------------------------------------------------------------------------------------------------
-
-
-plot_air_quality=function(filname,save_path,extension){
+plot_air_quality_return=function(filname){
   options(warn=-1)
   df = read.csv(filname)
-  city_name = str_to_title(sub(".*/", "", gsub("-.*$", "", filname)))
+  filname_list = strsplit(filname, "\\\\")
+  filname = filname_list[[1]][length(filname_list[[1]])]
+  city_name = str_to_title(sub(".*/", "", gsub("-air-quality.csv", "", filname)))
   start_date = as.Date("2022-01-01")
   end_date = as.Date("2022-12-31")
   df$date=as.Date(df$date)
@@ -617,7 +607,7 @@ plot_air_quality=function(filname,save_path,extension){
   size_ratio = 5
   inner_radius = 10
   radius_list = to_vec(for (i in 0:9) i*step_2)+inner_radius
-  text_y_1 = 0.175
+  text_y_1 = 0.185
   text_y_2 = 0.22
   text_y_3 = 0.22
   offset_1 = 0.2
@@ -643,14 +633,14 @@ plot_air_quality=function(filname,save_path,extension){
       data = data.frame(x = df$datetime[1],
                         y = 0, label = city_name),
       aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 18/.pt,
+      hjust = 0.5, vjust = 0.1, angle = 0, size = 28/.pt,
       color = "#333333",alpha=0.7,
       inherit.aes = FALSE
     )+
     coord_polar()+
     theme_bw()+
     theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 11,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a",angle=myAngle))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_blank(),
@@ -669,22 +659,22 @@ plot_air_quality=function(filname,save_path,extension){
       y = NULL, 
       size = 20
     )+
-    theme(plot.title = element_text(hjust = 0.5))
+    theme(plot.title = element_text(hjust = 0.5,size = 25))
   
   df_2 = data.frame(x = rep(0.486,6),y = 0.598+rev(seq(0,text_y_1,text_y_1/5)), label = rev(c("PM25","PM10"," O3","NO2","SO2"," CO")))
-  df_3 = data.frame(x = rep(0.79,7),y = 0.749+rev(seq(0,text_y_3,text_y_3/6)), label = c("#FFFFFF","#00e400","#ffff00","#ff7e00","#ff0000","#8f3f97","#7e0023"))
-  df_4 = data.frame(x = rep(0.82,7),y = 0.75+rev(seq(0,text_y_2,text_y_2/6)), label = c("AQI \n Numbers","0 - 50","51 - 100","101 - 150","151 - 200","201 - 300","301 - 500"))
+  df_3 = data.frame(x = rep(0.77,7),y = 0.749+rev(seq(0,text_y_3,text_y_3/6)), label = c("#FFFFFF","#00e400","#ffff00","#ff7e00","#ff0000","#8f3f97","#7e0023"))
+  df_4 = data.frame(x = rep(0.805,7),y = 0.75+rev(seq(0,text_y_2,text_y_2/6)), label = c("AQI \n Numbers","0 - 50","51 - 100","101 - 150","151 - 200","201 - 300","301 - 500"))
   df_5 = data.frame(x = rep(0.88,7),y = 0.75+rev(seq(0,text_y_2,text_y_2/6)), label = c("AQI \n Category \n Descriptor","Good","Moderate","Unhealthy for \n Sensitive Groups","Unhealthy","Very \n Unhealthy","Hazardous"))
   
   block_y_offset = 0.0186
   block_opacity = 0.8
-  block_size = 10
+  block_size = 15
   
   color_list = c("#FFFFFF","#00787E","#059A65","#85BD4B","#FFDD33","#FFBA33","#FE9633","#E44933","#CA0035","#970068","#78003F","#4E0016")
   
-  image_1 = ggdraw(image)+geom_text(data = df_2, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 7/.pt, alpha=0.7)+
-    geom_text(data = df_4, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 6/.pt, alpha=1)+
-    geom_text(data = df_5, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 6/.pt, alpha=1)+
+  image_1 = ggdraw(image)+geom_text(data = df_2, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 15/.pt, alpha=0.7)+
+    geom_text(data = df_4, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 12/.pt, alpha=1)+
+    geom_text(data = df_5, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 12/.pt, alpha=1)+
     geom_linerange(aes(x=df_3$x[1],ymin=df_3$y[1]-block_y_offset, ymax=df_3$y[1]+block_y_offset), color = color_list[1], alpha=0,size=block_size)+
     geom_linerange(aes(x=df_3$x[2],ymin=df_3$y[2], ymax=df_3$y[2]+block_y_offset), color = color_list[2], alpha=0.4,size=block_size)+
     geom_linerange(aes(x=df_3$x[2],ymin=df_3$y[2]-block_y_offset, ymax=df_3$y[2]), color = color_list[3], alpha=0.4,size=block_size)+
@@ -698,191 +688,95 @@ plot_air_quality=function(filname,save_path,extension){
     geom_linerange(aes(x=df_3$x[7],ymin=df_3$y[7], ymax=df_3$y[7]+block_y_offset), color = color_list[11], alpha=block_opacity,size=block_size)+
     geom_linerange(aes(x=df_3$x[7],ymin=df_3$y[7]-block_y_offset, ymax=df_3$y[7]), color = color_list[12], alpha=block_opacity,size=block_size)
   
-  ggsave(file=paste(save_path,"/",city_name," ","Air Pollution 2022.",extension,sep=""), plot=image_1, width=6, height=6)
+  return (image_1)
 }
 
-plot_weather_precipitation_new <- function(city,unit){
-  plot_weather_precipitation(paste(weather_files_path,
+plot_weather_precipitation_return_new <- function(city,unit){
+  plot_weather_precipitation_return(paste(weather_files_path,
                                    weather_cities_dict[city],
-                                   sep="/"),unit,weather_plots_path,"svg")}
+                                   sep="/"),unit)}
 
-plot_daytime_new <- function(city){
-  plot_daytime(paste(weather_files_path,
+plot_daytime_return_new <- function(city){
+  plot_daytime_return(paste(weather_files_path,
                      weather_cities_dict[city],
-                     sep="/"),daytime_plots_path,"svg")}
+                     sep="/"))}
 
-plot_weather_condition_new <- function(city){
-  plot_weather_condition(paste(weather_files_path,
+plot_weather_condition_return_new <- function(city){
+  plot_weather_condition_return(paste(weather_files_path,
                                weather_cities_dict[city],
-                               sep="/"),weather_condition_plots_path,"svg")}
+                               sep="/"))}
 
-plot_air_quality_new <- function(city){
-  plot_air_quality(paste(air_files_path,
+plot_air_quality_return_new <- function(city){
+  plot_air_quality_return(paste(air_files_path,
                          air_cities_dict[city],
-                         sep="/"),air_quality_plots_path,"svg")}
+                         sep="/"))}
 
 server <- function(input, output) {
-  output$svg_1_1 <- renderUI({
+  
+  output$svg_1_1 <- renderPlot({
     if (input$city_1 != ""){
-      tryCatch({
-        # plot_weather_precipitation_new(input$weather_city,input$unit)
-        svg_contents <- readLines(paste(weather_plots_path,paste(input$city_1," Weather Precipitation ", input$unit_compare," 2022.svg",sep=""),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_weather_precipitation_new(input$city_1,input$unit_compare)
-          svg_contents <- readLines(paste(weather_plots_path,paste(input$city_1," Weather Precipitation ", input$unit_compare," 2022.svg",sep=""),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+      plot_weather_precipitation_return_new(input$city_1, input$unit_compare)
     }else{
       output$svg_1_1=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_2_1 <- renderUI({
+  output$svg_2_1 <- renderPlot({
     if (input$city_1 != ""){
-      tryCatch({
-        # plot_daytime_new(input$daytime_city)
-        svg_contents <- readLines(paste(daytime_plots_path,paste(input$city_1,"Daytime 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_daytime_new(input$city_1)
-          svg_contents <- readLines(paste(daytime_plots_path,paste(input$city_1,"Daytime 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+      plot_daytime_return_new(input$city_1)
     }else{
       output$svg_2_1=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_3_1 <- renderUI({
+  output$svg_3_1 <- renderPlot({
     if (input$city_1 != ""){
-      tryCatch({
-        # plot_weather_condition_new(input$weather_condition_city)
-        svg_contents <- readLines(paste(weather_condition_plots_path,paste(input$city_1,"Weather Condition 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_weather_condition_new(input$city_1)
-          svg_contents <- readLines(paste(weather_condition_plots_path,paste(input$city_1,"Weather Condition 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+      plot_weather_condition_return_new(input$city_1)
     }else{
       output$svg_3_1=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_4_1 <- renderUI({
+  output$svg_4_1 <- renderPlot({
     if (input$city_1 != ""){
-      tryCatch({
-        # plot_air_quality_new(input$air_quality_city)
-        svg_contents <- readLines(paste(air_quality_plots_path,paste(input$city_1,"Air Pollution 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          tryCatch({
-            plot_air_quality_new(input$city_1)
-            svg_contents <- readLines(paste(air_quality_plots_path,paste(input$city_1,"Air Pollution 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-            svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-            div(svg_html, class = "svg-container")}, error = function(e){
-              output$svg_4_1 = renderUI({
-                HTML(paste("No Data", " ", sep="<br/><br/><br/><br/><br/><br/><br/><br/>"))
-              })
-            })
-        }
-      )
+      plot_air_quality_return_new(input$city_1)
     }else{
       output$svg_4_1=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_1_2 <- renderUI({
+  output$svg_1_2 <- renderPlot({
     if (input$city_2 != ""){
-      tryCatch({
-        # plot_weather_precipitation_new(input$weather_city,input$unit)
-        svg_contents <- readLines(paste(weather_plots_path,paste(input$city_2," Weather Precipitation ", input$unit_compare," 2022.svg",sep=""),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_weather_precipitation_new(input$city_2,input$unit_compare)
-          svg_contents <- readLines(paste(weather_plots_path,paste(input$city_2," Weather Precipitation ", input$unit_compare," 2022.svg",sep=""),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+      plot_weather_precipitation_return_new(input$city_2, input$unit_compare)
     }else{
       output$svg_1_2=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_2_2 <- renderUI({
+  output$svg_2_2 <- renderPlot({
     if (input$city_2 != ""){
-      tryCatch({
-        # plot_daytime_new(input$daytime_city)
-        svg_contents <- readLines(paste(daytime_plots_path,paste(input$city_2,"Daytime 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_daytime_new(input$city_2)
-          svg_contents <- readLines(paste(daytime_plots_path,paste(input$city_2,"Daytime 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+      plot_daytime_return_new(input$city_2)
     }else{
       output$svg_2_2=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_3_2 <- renderUI({
+  output$svg_3_2 <- renderPlot({
     if (input$city_2 != ""){
-      tryCatch({
-        # plot_weather_condition_new(input$weather_condition_city)
-        svg_contents <- readLines(paste(weather_condition_plots_path,paste(input$city_2,"Weather Condition 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          plot_weather_condition_new(input$city_2)
-          svg_contents <- readLines(paste(weather_condition_plots_path,paste(input$city_2,"Weather Condition 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-          svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-          div(svg_html, class = "svg-container")
-        }
-      )
+        plot_weather_condition_return_new(input$city_2)
     }else{
       output$svg_3_2=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
   
-  output$svg_4_2 <- renderUI({
+  output$svg_4_2 <- renderPlot({
     if (input$city_2 != ""){
-      tryCatch({
-        # plot_air_quality_new(input$air_quality_city)
-        svg_contents <- readLines(paste(air_quality_plots_path,paste(input$city_2,"Air Pollution 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-        svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-        div(svg_html, class = "svg-container")}, error = function(e){
-          tryCatch({
-            plot_air_quality_new(input$city_2)
-            svg_contents <- readLines(paste(air_quality_plots_path,paste(input$city_2,"Air Pollution 2022.svg",sep=" "),sep="/"), encoding = "UTF-8")
-            svg_html <- HTML(paste(svg_contents, collapse = "\n"))
-            div(svg_html, class = "svg-container")}, error = function(e){
-              output$svg_4_2 = renderUI({
-                HTML(paste("No Data", " ", sep="<br/><br/><br/><br/><br/><br/><br/><br/>"))
-              })
-            })
-        }
-      )
+      plot_air_quality_return_new(input$city_2)
     }else{
       output$svg_4_2=HTML("", collapse = "\n")
-      div(svg_html, class = "svg-container")
     }
   })
+  
   # options(encoding = "UTF-8")
   df_1 <- reactive({
     df = df[df$Climate.Names==climate_name_dict[input$climate_1],c("city_name","Country")]
@@ -1145,9 +1039,8 @@ server <- function(input, output) {
               "\nCountry/Region: ", df$Country,
               "\nKoppen Climate: ", df$Climate.Names,
               "\nClimate Code: ", df$Koppen.climate,
-              "\n",input$plot_2_x_axis,": ", df[[viz_cols_mapping[[input$plot_2_x_axis]]]],
-              "\n",input$plot_2_y_axis,": ", df[[viz_cols_mapping[[input$plot_2_y_axis]]]],
-              "\n",input$plot_2_z_axis,": ", df[[viz_cols_mapping[[input$plot_2_z_axis]]]]),
+              "\n",input$plot_1_x_axis,": ", df[[viz_cols_mapping[[input$plot_1_x_axis]]]],
+              "\n",input$plot_1_y_axis,": ", df[[viz_cols_mapping[[input$plot_1_y_axis]]]]),
             color=df$Koppen.climate,
             colors = df$Color.Code)%>%
       layout(scene = list(xaxis = list(title = input$plot_2_x_axis), 
