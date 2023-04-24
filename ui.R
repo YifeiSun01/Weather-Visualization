@@ -30,11 +30,6 @@ options(warn=-1)
 weather_files_path = "data/weather data"
 air_files_path = "data/air quality data"
 
-weather_plots_path = "plots/weather plots"
-daytime_plots_path = "plots/daytime plots"
-weather_condition_plots_path = "plots/weather condition plots"
-air_quality_plots_path = "plots/air quality plots"
-
 weather_files = list.files(weather_files_path,pattern = "\\.csv$")
 air_files = list.files(air_files_path,pattern = "\\.csv$")
 
@@ -135,18 +130,25 @@ ui <- fluidPage(
                  br(),
                  br(),
                  tabsetPanel(
-                   tabPanel("Temperature and Precipitation", htmlOutput("svg_1_1")),
-                   tabPanel("Daytimes and Nighttimes", htmlOutput("svg_2_1")),
-                   tabPanel("Weather Conditions", htmlOutput("svg_3_1")),
-                   tabPanel("Air Quality", htmlOutput("svg_4_1"))
+                   tabPanel("Temperature and Precipitation", 
+                            plotOutput("svg_1_1", width = "900px", height = "900px")),
+                   tabPanel("Daytime and Nighttime", 
+                            plotOutput("svg_2_1", width = "800px", height = "800px")),
+                   tabPanel("Weather Conditions", 
+                            plotOutput("svg_3_1", width = "800px", height = "800px")),
+                   tabPanel("Air Quality", 
+                            plotOutput("svg_4_1", width = "800px", height = "800px"))
                  ),
                  tabsetPanel(
-                   tabPanel("Temperature and Precipitation", htmlOutput("svg_1_2")),
-                   tabPanel("Daytimes and Nighttimes", htmlOutput("svg_2_2")),
-                   tabPanel("Weather Conditions", htmlOutput("svg_3_2")),
-                   tabPanel("Air Quality", htmlOutput("svg_4_2"))
-                 )
-               )
+                   tabPanel("Temperature and Precipitation", 
+                            plotOutput("svg_1_2", width = "900px", height = "900px")),
+                   tabPanel("Daytime and Nighttime", 
+                            plotOutput("svg_2_2", width = "800px", height = "800px")),
+                   tabPanel("Weather Conditions", 
+                            plotOutput("svg_3_2", width = "800px", height = "800px")),
+                   tabPanel("Air Quality",
+                            plotOutput("svg_4_2", width = "800px", height = "800px"))
+               ))
              ) 
     ),
     tabPanel("Explore the Dataset",
