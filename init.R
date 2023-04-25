@@ -14,10 +14,7 @@ install_if_missing = function(p) {
 
 invisible(sapply(my_packages, install_if_missing))
 
-remove.packages(c("tidyverse","lubridate"))
-
 install.packages("leaflet.tar.gz", repos=NULL, type="source")
-install.packages("tidyverse.tar.gz", repos=NULL, type="source")
 install.packages("cowplot.tar.gz", repos=NULL, type="source")
 install.packages("extrafont.tar.gz", repos=NULL, type="source")
 install.packages("ggforce.tar.gz", repos=NULL, type="source")
@@ -25,4 +22,3 @@ install.packages("comprehenr.tar.gz", repos=NULL, type="source")
 install.packages("stringr.tar.gz", repos=NULL, type="source")
 install.packages("LaplacesDemon.tar.gz", repos=NULL, type="source")
 install.packages("lutz.tar.gz", repos=NULL, type="source")
-install.packages("lubridate.tar.gz", repos=NULL, type="source")
