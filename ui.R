@@ -88,6 +88,7 @@ ui <- fluidPage(
                  leafletOutput("map_1"),
                  p(),
                  br(),
+                 DT::dataTableOutput("df_8"),
                  textOutput("text_5"),
                  DT::dataTableOutput("df_5")
                )

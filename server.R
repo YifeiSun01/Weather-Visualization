@@ -68,6 +68,10 @@ viz_cols_names = c("Latitude (\u00B0)" ,             "Longitude (\u00B0)"    ,
                    "Temperature Solar Radiation Correlation Coefficient" )
 viz_cols_mapping = hash(as.list(viz_cols_names),as.list(viz_cols))
 
+df_index = read.csv("data/Climate 123.csv", row.names = 1)
+colnames(df_index) = c(" "," "," ")
+rownames(df_index) <- 1:nrow(df_index)
+
 plot_weather_precipitation_return = function(filname, unit){
   df = read.csv(filname)
   df$datetime=as.Date(df$datetime, origin = "2022-01-01")
@@ -911,6 +915,15 @@ server <- function(input, output) {
   
   output$df_5 = DT::renderDataTable({
     DT::datatable(df_5(), escape = FALSE, 
+                  options = list(dom = 't', paging = FALSE))
+  })
+  
+  df_8 <- reactive({
+    df_index
+  })
+  
+  output$df_8 = DT::renderDataTable({
+    DT::datatable(df_8(), escape = FALSE, 
                   options = list(dom = 't', paging = FALSE))
   })
   
