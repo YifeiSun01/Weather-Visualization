@@ -1,4 +1,3 @@
-
 library(shiny)
 library(shinythemes)
 library(rgl)
@@ -148,7 +147,7 @@ ui <- fluidPage(
                             plotOutput("svg_3_2", width = "800px", height = "800px")),
                    tabPanel("Air Quality",
                             plotOutput("svg_4_2", width = "800px", height = "800px"))
-               ))
+                 ))
              ) 
     ),
     tabPanel("Explore the Dataset",
@@ -166,6 +165,15 @@ ui <- fluidPage(
                  selectInput("plot_1_y_transform", "Choose y axis transformation for plot 1:", 
                              choices = c("Linear","Logarithmic","Absolute","Cosine"),
                              selected = "Linear"),
+                 selectInput("country_3", "Filter by Country or Region:", 
+                             choices = c("(All)",sort(unique(df$Country))),
+                             selected = "(All)"),
+                 selectInput("climate_4", "Filter by Climate:", 
+                             choices = c("(All)",names(climate_name_dict)),
+                             selected = "(All)"),
+                 br(),
+                 br(),
+                 br(),
                  br(),
                  br(),
                  br(),
@@ -193,6 +201,33 @@ ui <- fluidPage(
                  selectInput("plot_2_z_transform", "Choose z axis transformation for plot 2:", 
                              choices = c("Linear","Logarithmic","Absolute","Cosine"),
                              selected = "Linear"),
+                 selectInput("country_4", "Filter by Country or Region:", 
+                             choices = c("(All)",sort(unique(df$Country))),
+                             selected = "(All)"),
+                 selectInput("climate_5", "Filter by Climate:", 
+                             choices = c("(All)",names(climate_name_dict)),
+                             selected = "(All)"),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 selectInput("map_3_feature", "Choose a feature to visualize on the map:", 
+                             choices = keys(viz_cols_mapping),
+                             selected = "Annual Mean Temperature (\u00B0C)"),
+                 selectInput("country_5", "Filter by Country or Region:", 
+                             choices = c("(All)",sort(unique(df$Country))),
+                             selected = "(All)"),
+                 selectInput("climate_6", "Filter by Climate:", 
+                             choices = c("(All)",names(climate_name_dict)),
+                             selected = "(All)"),
                ),
                mainPanel(
                  plotlyOutput("plot_1", width = 700, height = 700),
@@ -200,7 +235,10 @@ ui <- fluidPage(
                  textOutput("regression_text_1"),
                  br(),
                  br(),
-                 plotlyOutput("plot_2", width = 700, height = 700)
+                 plotlyOutput("plot_2", width = 700, height = 700),
+                 br(),
+                 br(),
+                 leafletOutput("map_3", width = 700, height = 700)
                ))),
     tabPanel("Contribute to This Project",
              sidebarLayout(

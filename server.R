@@ -1,4 +1,3 @@
-
 library(shiny)
 library(shinythemes)
 library(rgl)
@@ -526,7 +525,7 @@ plot_weather_condition_return=function(filname){
   block_opacity = 0.8
   block_offset = 0.002
   block_x = 0.81
-    
+  
   image_1 = ggdraw(image)+
     geom_text(
       data = data.frame(x = 0.85+rep(0,7),
@@ -693,23 +692,23 @@ plot_air_quality_return=function(filname){
 
 plot_weather_precipitation_return_new <- function(city,unit){
   plot_weather_precipitation_return(paste(weather_files_path,
-                                   weather_cities_dict[city],
-                                   sep="/"),unit)}
+                                          weather_cities_dict[city],
+                                          sep="/"),unit)}
 
 plot_daytime_return_new <- function(city){
   plot_daytime_return(paste(weather_files_path,
-                     weather_cities_dict[city],
-                     sep="/"))}
+                            weather_cities_dict[city],
+                            sep="/"))}
 
 plot_weather_condition_return_new <- function(city){
   plot_weather_condition_return(paste(weather_files_path,
-                               weather_cities_dict[city],
-                               sep="/"))}
+                                      weather_cities_dict[city],
+                                      sep="/"))}
 
 plot_air_quality_return_new <- function(city){
   plot_air_quality_return(paste(air_files_path,
-                         air_cities_dict[city],
-                         sep="/"))}
+                                air_cities_dict[city],
+                                sep="/"))}
 
 server <- function(input, output) {
   
@@ -763,7 +762,7 @@ server <- function(input, output) {
   
   output$svg_3_2 <- renderPlot({
     if (input$city_2 != ""){
-        plot_weather_condition_return_new(input$city_2)
+      plot_weather_condition_return_new(input$city_2)
     }else{
       output$svg_3_2=HTML("", collapse = "\n")
     }
@@ -1008,7 +1007,29 @@ server <- function(input, output) {
   })
   
   output$plot_1 <- renderPlotly({
-    p = ggplot(data = plot_df_1())+
+    df = plot_df_1()
+    normal_size=1
+    stress_size=3
+    normal_opacity=0.3
+    stress_opacity=1
+    original_size=2
+    original_opacity=0.8
+  if (input$country_3 == "(All)" & input$climate_4 == "(All)") {
+    size_vec = rep(original_size,length(df$city_name))
+    opacity_vec = rep(original_opacity,length(df$city_name))
+  } else {
+    if (input$country_3 != "(All)" & input$climate_4 == "(All)") {
+    size_vec = ifelse(df$Country==input$country_3,stress_size,normal_size) 
+    opacity_vec = ifelse(df$Country==input$country_3,stress_opacity,normal_opacity) 
+    } else if (input$country_3 == "(All)" & input$climate_4 != "(All)"){
+    size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_size,normal_size)
+    opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_opacity,normal_opacity) 
+    } else if (input$country_3 != "(All)" & input$climate_4 != "(All)"){
+      size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_size,normal_size)
+      opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
+    }
+    }
+    p = ggplot(data = df)+
       geom_point(aes(x,
                      y,
                      text = paste(
@@ -1018,7 +1039,9 @@ server <- function(input, output) {
                        "\nClimate Code: ", df$Koppen.climate,
                        "\n",input$plot_1_x_axis,": ", df[[viz_cols_mapping[[input$plot_1_x_axis]]]],
                        "\n",input$plot_1_y_axis,": ", df[[viz_cols_mapping[[input$plot_1_y_axis]]]])),
-                 color=df$Color.Code)+                                     
+                 color=df$Color.Code,
+                 size=size_vec,
+                 alpha=opacity_vec)+                                     
       stat_smooth(aes(x = x, y = y), method = "lm") + theme_bw() + 
       xlab(input$plot_1_x_axis) +
       ylab(input$plot_1_y_axis) 
@@ -1033,7 +1056,29 @@ server <- function(input, output) {
   })
   
   output$plot_2 = renderPlotly({
-    plot_ly(plot_df_2(), x = ~x, y = ~y, z = ~z, 
+    df = plot_df_2()
+    normal_size=15
+    stress_size=25
+    normal_opacity=0.8
+    stress_opacity=1
+    original_size=20
+    original_opacity=0.9
+    if (input$country_4 == "(All)" & input$climate_5 == "(All)") {
+      size_vec = rep(original_size,length(df$city_name))
+      opacity_vec = rep(original_opacity,length(df$city_name))
+    } else {
+      if (input$country_4 != "(All)" & input$climate_5 == "(All)") {
+        size_vec = ifelse(df$Country==input$country_4,stress_size,normal_size) 
+        opacity_vec = ifelse(df$Country==input$country_4,stress_opacity,normal_opacity) 
+      } else if (input$country_4 == "(All)" & input$climate_5 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_opacity,normal_opacity) 
+      } else if (input$country_4 != "(All)" & input$climate_5 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_opacity,normal_opacity)
+      }
+    }
+    plot_ly(df, x = ~x, y = ~y, z = ~z, 
             text = paste(
               "City: ", df$city_name,
               "\nCountry/Region: ", df$Country,
@@ -1042,12 +1087,73 @@ server <- function(input, output) {
               "\n",input$plot_1_x_axis,": ", df[[viz_cols_mapping[[input$plot_1_x_axis]]]],
               "\n",input$plot_1_y_axis,": ", df[[viz_cols_mapping[[input$plot_1_y_axis]]]]),
             color=df$Koppen.climate,
-            colors = df$Color.Code)%>%
+            colors = df$Color.Code,
+            opacity = opacity_vec,
+            marker = list(size = size_vec)
+            )%>%
       layout(scene = list(xaxis = list(title = input$plot_2_x_axis), 
                           yaxis = list(title = input$plot_2_y_axis), 
                           zaxis = list(title = input$plot_2_z_axis))
       )
   }) 
+  
+  output$map_3 = renderLeaflet({
+    df = plot_df_2()
+    normal_size=15
+    stress_size=25
+    normal_opacity=0.3
+    stress_opacity=1
+    original_size=10
+    original_opacity=0.8
+    if (input$country_5 == "(All)" & input$climate_6 == "(All)") {
+      size_vec = rep(original_size,length(df$city_name))
+      opacity_vec = rep(original_opacity,length(df$city_name))
+    } else {
+      if (input$country_5 != "(All)" & input$climate_6 == "(All)") {
+        size_vec = ifelse(df$Country==input$country_5,stress_size,normal_size) 
+        opacity_vec = ifelse(df$Country==input$country_5,stress_opacity,normal_opacity) 
+      } else if (input$country_5 == "(All)" & input$climate_6 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_opacity,normal_opacity) 
+      } else if (input$country_5 != "(All)" & input$climate_6 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_opacity,normal_opacity)
+      }
+    }
+     popup = paste0("<strong>City:</strong> ", df$city_name, "<br>",
+                    "<strong>Country/Region:</strong> ", df$Country, "<br>",
+                    "<strong>Latitude:</strong> ", df$lat, "<br>",
+                    "<strong>Longitude:</strong> ", df$long, "<br>",
+                    "<strong>Elevation (m):</strong> ", df$elevation..m., "<br>",
+                    "<strong>Distance to the Sea (km):</strong> ", df$dist_to_sea..km., "<br>",
+                    "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
+                    "<strong>Climate Code:</strong> ", df$Koppen.climate, "<br>",
+                    "<strong>",input$map_3_feature,":</strong> ", df[[viz_cols_mapping[[input$map_3_feature]]]], "<br>")
+     rc2 <- colorRampPalette(colors = c("green", "red"), space = "Lab")(180)
+     pal <- colorQuantile(
+       palette = rc2,
+       domain = as.numeric(df[[viz_cols_mapping[[input$map_3_feature]]]]),
+       n = 10,
+       na.color = "#808080"
+     )
+     qpal_colors <- unique(pal(sort(df[[viz_cols_mapping[[input$map_3_feature]]]]))) # hex codes
+     qpal_labs <- round(quantile(df[[viz_cols_mapping[[input$map_3_feature]]]], seq(0, 1, 1/(length(qpal_colors))), na.rm=TRUE),2)
+     qpal_labs <- paste(lag(qpal_labs), qpal_labs, sep = " - ")[-1]
+     
+       leaflet(data = df) %>%
+           addTiles() %>%
+           addCircleMarkers(lat = as.numeric(df$latitude..degree.), 
+                                          lng = as.numeric(df$longitude..degree.),
+                                          label = lapply(as.list(popup), HTML),
+                                          radius = 6,color = ~pal(df[[viz_cols_mapping[[input$map_3_feature]]]]),
+                                          stroke = FALSE, fillOpacity = opacity_vec)%>%
+          addLegend("bottomright",
+                    title = input$map_3_feature,
+                    labFormat = labelFormat(prefix = ""),
+                    colors = qpal_colors, labels = qpal_labs, 
+                    opacity = 1)
+  })
+  
   output$contribution_text = renderUI({
     HTML("<p>This project is created by Yifei Sun.</p>
 <p>Contribute to this project by uploading more data to <a href='https://github.com/YifeiSun01/Weather-Visualization/tree/main/data'>this Github</a>.</p>
