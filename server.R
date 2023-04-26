@@ -23,6 +23,7 @@ library(LaplacesDemon)
 library(data.table)
 library(lutz)
 library(lubridate)
+library(geomtextpath)
 
 options(warn=-1)
 
@@ -122,7 +123,7 @@ plot_weather_precipitation_return = function(filname, unit){
     scale_color_gradientn(colors=my_colors, values=my_values, limits=c(0,1)) + 
     scale_x_date(labels = date_format("%B"), breaks = date_breaks("month")) + 
     ylim(lower_y, upper_y+10) + 
-    coord_polar() +
+    coord_curvedpolar() +
     theme_light() +
     labs(
       title = paste(city_name,"Weather Radial 2022"),
@@ -133,7 +134,7 @@ plot_weather_precipitation_return = function(filname, unit){
       size = 30
     )+
     theme(plot.title = element_text(hjust = 0.5, size = 25)) +
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 17,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 17,colour="#18191a"))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_line(size=.5, color="lightgray"),
@@ -408,8 +409,8 @@ plot_daytime_return=function(filname){
       axis.title.x = element_blank(),
       axis.title.y = element_blank()
     )+ 
-    coord_polar(theta="x",start=0)+
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 20,colour="#18191a",angle=myAngle))+
+    coord_curvedpolar(theta="x",start=0)+
+    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 20,colour="#18191a"))+
     labs(
       title = paste(city_name,"Daytime Radial 2022"),
       subtitle = " ",
@@ -497,10 +498,10 @@ plot_weather_condition_return=function(filname){
       color = "#333333",alpha=0.7,
       inherit.aes = FALSE
     )+
-    coord_polar()+
+    coord_curvedpolar()+
     theme_bw()+
     theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a"))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_blank(),
@@ -640,10 +641,10 @@ plot_air_quality_return=function(filname){
       color = "#333333",alpha=0.7,
       inherit.aes = FALSE
     )+
-    coord_polar()+
+    coord_curvedpolar()+
     theme_bw()+
     theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a",angle=myAngle))+
+    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a"))+
     theme( # remove the vertical grid lines
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_blank(),
