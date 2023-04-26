@@ -4,7 +4,7 @@
 #
 
 my_packages = c("shiny", "shinythemes", "rgl", "DT", "dplyr", "leaflet", "gt", "scales", "hash", "plotly",
-              "chron","ggplot2","viridis","scales","tidyverse","cowplot","extrafont","ggforce","comprehenr",
+              "chron","viridis","scales","tidyverse","cowplot","extrafont","ggforce","comprehenr",
                "stringr","LaplacesDemon","data.table","lutz","lubridate","geomtextpath")
 install_if_missing = function(p) {
   if (p %in% rownames(installed.packages()) == FALSE) {
@@ -24,3 +24,4 @@ install.packages("packages/LaplacesDemon.tar.gz", repos=NULL, type="source")
 install.packages("packages/lutz.tar.gz", repos=NULL, type="source")
 install.packages("packages/lubridate.tar.gz", repos=NULL, type="source")
 install.packages("packages/tidyverse.tar.gz", repos=NULL, type="source")
+install.packages("packages/ggplot2.tar.gz", repos=NULL, type="source")
