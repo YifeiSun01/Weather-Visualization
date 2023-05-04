@@ -1,6 +1,0 @@
-,1st,2nd,3rd
-0,A (Tropical),"f (Rainforest),m (Monsoon),w (Savanna, dry winter),s (Savanna, dry summer)",
-2,B (Dry),"W (Arid Desert),S (Semi-Arid or steppe) ","h (Hot),k (Cold)"
-4,C (Temperate),"w (Dry winter),f (No dry season),s (Dry summer)","a (Hot summer),b (Warm summer),c (Cold summer)"
-6,D (Continental),"w (Dry winter),f (No dry season),s (Dry summer) ","a (Hot summer),b (Warm summer),c (Cold summer),d (Very cold winter)"
-8,E (Polar),"T (Tundra),F (Ice cap)",
