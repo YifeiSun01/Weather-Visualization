@@ -1,719 +1,4 @@
-library(shiny)
-library(shinythemes)
-library(rgl)
-library(DT)
-library(dplyr)
-library(leaflet)
-library(gt)
-library(scales)
-library(hash)
-library(plotly)
-library(chron)
-library(ggplot2)
-library(viridis)
-library(scales)
-library(tidyverse)
-library(cowplot)
-library(extrafont)
-library(ggforce)
-library(comprehenr)
-library(dplyr)
-library(stringr)
-library(LaplacesDemon)
-library(data.table)
-library(lutz)
-library(lubridate)
-library(geomtextpath)
-
-options(warn=-1)
-
-weather_files_path = "data/weather data"
-air_files_path = "data/air quality data"
-
-weather_files = list.files(weather_files_path,pattern = "\\.csv$")
-air_files = list.files(air_files_path,pattern = "\\.csv$")
-
-function_1 = function(x) {
-  return (str_to_title(gsub(" *[0-9].*$", "", x)))
-}
-function_2 = function(x) {
-  return (str_to_title(gsub("-.*$", "", x)))
-}
-weather_cities = unlist(lapply(weather_files, function_1))
-air_cities = unlist(lapply(air_files, function_2))
-
-weather_cities_dict = setNames(weather_files, weather_cities)
-air_cities_dict = setNames(air_files, air_cities)
-
-df = read.csv("data/City Climate Data and Koppen Climate Classification.csv")
-df <- df[order(df$Koppen.climate), ]
-climate_list = df$Climate.Names
-climate_name_dict <- setNames(as.list(df$Climate.Names), paste(df$Climate.Names, ", ", df$Koppen.climate))
-df$lat <- ifelse(df$latitude..degree. > 0, 
-                 paste(as.character(df$latitude..degree.), "\u00B0","N"), 
-                 paste(as.character(-df$latitude..degree.), "\u00B0","S"))
-
-df$long <- ifelse(df$longitude..degree. > 0, 
-                  paste(as.character(df$longitude..degree.), "\u00B0","E"), 
-                  paste(as.character(-df$longitude..degree.), "\u00B0","W"))
-color_mapping = hash(as.list(df$Climate.Names),as.list(df$Color.Code))
-viz_cols = c(colnames(df)[6:13],colnames(df)[17:25])
-viz_cols_names = c("Latitude (\u00B0)" ,             "Longitude (\u00B0)"    ,        
-                   "Elevation (m)"      ,            "Distance to the Sea (km)"      ,        
-                   "Annual Mean Temperature (\u00B0C)", "Annual Mean Solar Radiation (W/m2)" ,   
-                   "Mean Humidity (\u0025)"     ,         "Annual Mean Windspeed (kph)"       ,   
-                   "Annual Temperature Standard Deviation (\u00B0C)", "Annual Mean Daily Temperature Range (\u00B0C)"  ,   
-                   "Annual Mean Temperature Difference (\u00B0C)" ,"Annual Precipitation Standard Deviation (mm)"            ,   
-                   "Annual Precipitation Sum (mm)", "Temperature Precipitation Correlation Coefficient"  ,    
-                   "Humidity Solar Radiation Correlation Coefficient" ,  "Humidity Precipitation Correlation Coefficient"         ,    
-                   "Temperature Solar Radiation Correlation Coefficient" )
-viz_cols_mapping = hash(as.list(viz_cols_names),as.list(viz_cols))
-
-df_index = read.csv("data/Climate 123.csv", row.names = 1)
-colnames(df_index) = c(" "," "," ")
-rownames(df_index) <- 1:nrow(df_index)
-
-plot_weather_precipitation_return = function(filname, unit){
-  df = read.csv(filname)
-  df$datetime=as.Date(df$datetime, origin = "2022-01-01")
-  weather_conditions = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
-                         "Freezing Drizzle/Freezing Rain")
-  df[weather_conditions] = 0
-  for (i in 1:nrow(df)){
-    for (j in weather_conditions){
-      if (j %in% unlist(strsplit(df$conditions[i],", "))){
-        df[[j]][i] = 1
-      } 
-    }
-  }
-  
-  city_name = str_to_title(sub(".*/", "", gsub(" *[0-9].*$", "", filname)))
-  
-  options(warn=-1)
-  
-  lower_y = -50
-  upper_y = 50
-  my_colors = rev(c("red","red","#ff2800","#ff4500", "orange",
-                    "#ffc100", "yellow","#9ACD32", 
-                    "#6aa121","#52b2bf", "#4683b7","#0047ab", 
-                    "#00004d","#192841","#192841","#000137","#000137","#152238","#00008B"))
-  interval_1 = 19
-  my_values = (logit(seq(0.1,0.9,0.8/interval_1))-min(logit(seq(0.1,0.9,0.8/interval_1))))/(max(logit(seq(0.1,0.9,0.8/interval_1)))-min(logit(seq(0.1,0.9,0.8/interval_1))))
-  my_breaks <- seq(1, 10, length.out = length(my_colors) + 1)
-  
-  myAngle <-seq(0,-360,length.out = 13)
-  options(repr.plot.width = 20, repr.plot.height = 20)
-  opacity_1 = 0.35
-  opacity_2 = 0.3
-  offset_2 = -30
-  ratio_3 = 0.85
-  temp_size = 1.5
-  
-  p = ggplot(df,aes(datetime, origin="2022-01-01"))+
-    geom_ribbon(aes(ymin=0, ymax=4*(df$snowdepth)^(0.5)), fill="#601EF9", col="#601EF9", alpha=0.15)+
-    geom_point(y=0.7*(df$temp-lower_y)+lower_y-10,shape=19,size=3*(df$precip)^(1/2),colour="#618db8",alpha=0.25,fill="#ADD8E6")+
-    geom_point(y=0.7*(df$temp-lower_y)+lower_y-10,shape=19,size=5*(df$snow)^(1/2),colour="#7953a9",alpha=0.25,fill="#acace6")+
-    geom_point(y=45,shape=19,size=0.035*df$solarradiation,colour="#FFAE42",alpha=0.27,fill="#FFCC33")+
-    geom_point(y=55,shape=19,size=0.05*250*(df$humidity/100)^4,colour="#ADD8E6",alpha=0.27,fill="#ADD8E6")+
-    geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#0047ab", col="#00008B", size = 1.5,alpha = opacity_1*df[["Rain"]])+
-    geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#7034fa", col="#301934", size = 1.5,alpha = opacity_1*df[["Snow"]])+
-    geom_linerange(aes(datetime, ymin=offset_2, ymax=df$precip*ratio_3+offset_2), fill="#330044", col="#5A5A5A", size = 1.5,alpha = opacity_2*df[["Freezing Drizzle/Freezing Rain"]])+
-    geom_linerange(aes(datetime, ymin = feelslikemin, ymax = feelslikemax, color = ((feelslike-lower_y-10)/(upper_y-3-lower_y-10))), size = temp_size, alpha = 0.5) +
-    geom_linerange(aes(datetime, ymin = tempmin, ymax = tempmax, color = ((temp-lower_y-10)/(upper_y-3-lower_y-10))), size = temp_size, alpha = 1) +
-    scale_color_gradientn(colors=my_colors, values=my_values, limits=c(0,1)) + 
-    scale_x_date(labels = date_format("%B"), breaks = date_breaks("month")) + 
-    ylim(lower_y, upper_y+10) + 
-    coord_curvedpolar() +
-    theme_light() +
-    labs(
-      title = paste(city_name,"Weather Radial 2022"),
-      subtitle = " ",
-      caption = " ",
-      x = NULL,
-      y = NULL, 
-      size = 30
-    )+
-    theme(plot.title = element_text(hjust = 0.5, size = 25)) +
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 17,colour="#18191a"))+
-    theme( # remove the vertical grid lines
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_line(size=.5, color="lightgray"),
-      # explicitly set the horizontal lines (or they will disappear too)
-      panel.grid.major.y = element_line(size=.6, color="gray"),
-      panel.border = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank()
-    )+
-    scale_y_continuous(limits = c(lower_y, upper_y),
-                       minor_breaks = seq(lower_y+20, upper_y-10, by = 10),
-                       breaks = seq(lower_y+10, upper_y, by = 10))+
-    theme(legend.position = "none")+
-    theme(legend.key.height= unit(0.3, 'cm'),
-          legend.key.width= unit(3, 'cm'))
-  
-  ratio_1 = 0.3665
-  ratio_2 = 0.001
-  
-  time=9
-  step=0.03648
-  
-  x_cen = 0.502
-  y_cen = 0.4874
-  
-  block_step = 0.04
-  block_step_1 = 0.04
-  interval=0.005
-  start_y = 0.724
-  start_x=0.06
-  start_x_1=0.06
-  start_y_1=0.07
-  r = 0.015
-  if (unit=="Metric"){
-    temp_list = c("-40","-30","-20","-10","0","10","20","30","40","50")
-    temp_label = c("\u00B0C")
-    unit_name = "Celsius"} else{
-      temp_list = c("-40","-22","-4","14","32","50","68","86","104","122")
-      temp_label = c("\u00B0F") 
-      unit_name = "Fahrenheit"
-    }
-  
-  image = ggdraw(p) +
-    geom_text(
-      data = data.frame(x = x_cen,
-                        y = y_cen-0.008, label = city_name),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 30/.pt,
-      color = "#333333",
-      inherit.aes = FALSE
-    )+
-    geom_circle(aes(x0 = x_cen, y0 = y_cen, r = 0.183),alpha=0.13, fill="#B7C9E2", color = "#6699CC",size=0.5,inherit.aes = FALSE)+
-    geom_circle(aes(x0 = x_cen, y0 = y_cen, r = 0.183*(-lower_y+offset_2)/(-lower_y)),alpha=0.0, fill="#B7C9E2", color = "#0047ab",size=0.5,inherit.aes = FALSE)+ 
-    geom_segment(aes(
-      x = x_cen+ratio_1*sin(2*pi*as.numeric(df$datetime-df$datetime[1])/360), 
-      y = y_cen+ratio_1*cos(2*pi*as.numeric(df$datetime-df$datetime[1])/360), 
-      xend = x_cen+ratio_1*sin(2*pi*as.numeric(df$datetime-df$datetime[1])/360)+ratio_2*cos(pi*(df$winddir+180)/180)*df$windspeed, 
-      yend = y_cen+ratio_1*cos(2*pi*as.numeric(df$datetime-df$datetime[1])/360)+ratio_2*sin(pi*(df$winddir+180)/180)*df$windspeed),
-      arrow = arrow(length = unit(0.07, "cm")),alpha=1.3*(df$windspeed/50)^(1.9),color="#30106b",size=1.3*(df$windspeed/50)^(1/4))+ 
-    geom_segment(aes(
-      x = x_cen, 
-      y = y_cen+0.019, 
-      xend = x_cen, 
-      yend = y_cen+0.385),arrow = arrow(length = unit(0.07, "cm")),alpha=0.7,color="#5A5A5A",size = 1)+
-    geom_text(
-      data = data.frame(x = x_cen-0.013+rep(0,10),
-                        y = y_cen+0.0315+to_vec(for(i in 0:time) i*step), label = temp_list),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 13/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=0.8
-    )+
-    geom_text(
-      data = data.frame(x = x_cen+0.014,
-                        y = y_cen+0.0315+time*step, label = temp_label),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 13/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=0.8
-    )+
-    geom_text(
-      data = data.frame(x = x_cen+0.014,
-                        y = y_cen+0.0315+(-lower_y+offset_2/10)*step, label = c("0mm")),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 10/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=0.8
-    )+
-    geom_text(
-      data = data.frame(x = start_x+0.03+rep(0,6),
-                        y = start_y+to_vec(for(i in 1:6) i*block_step),
-                        label = c("Precipitation","Snow","Solar Radiation","Humidity","Snow Depth", "Wind")),
-      aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 12/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=1
-    )+
-    geom_circle(aes(x0 = start_x, y0 = start_y+block_step, r = 0.015), shape=19, size=0.1, colour="#618db8", alpha=0.45, fill="#ADD8E6")+
-    geom_circle(aes(x0 = start_x, y0 = start_y+2*block_step, r = 0.015), shape=19, size=0.1, colour="#7953a9", alpha=0.45, fill="#acace6")+
-    geom_circle(aes(x0 = start_x, y0 = start_y+3*block_step, r = 0.015), shape=19, size=0.1, colour="#FFAE42", alpha=0.5, fill="#FFCC33")+
-    geom_circle(aes(x0 = start_x, y0 = start_y+4*block_step, r = 0.015), shape=19, size=0.1, colour="#ADD8E6", alpha=0.5, fill="#ADD8E6")+
-    geom_ribbon(aes(x=c(start_x-5*interval,start_x+5*interval),ymin=start_y+4.6*block_step, ymax=start_y+5.4*block_step), fill="#601EF9", col="#601EF9", alpha=0.15)+ 
-    geom_segment(aes(
-      x = start_x-0.02, 
-      y = start_y+6*block_step-0.02, 
-      xend = start_x+ratio_1*sin(pi/4)*0.1, 
-      yend = start_y+6*block_step+ratio_1*cos(pi/4)*0.1),
-      arrow = arrow(length = unit(0.07, "cm")),
-      alpha=0.4,color="#30106b",size=1)+
-    geom_text(
-      data = data.frame(x = 0.04,
-                        y = 0.05,
-                        label = c(paste("Daily temperatures are shown as the color of the bars, \n the length of the bar represents the range of the temperature on that day, \n the opaque part of the bar shows the feels-like temperature on that day. \n Temperature Unit: ",unit_name))),
-      aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 10/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=1
-    )+
-    geom_text(
-      data = data.frame(x = start_x_1+0.03+rep(0,6),
-                        y = start_y_1+to_vec(for(i in 1:6) i*block_step_1),
-                        label = c("Rain","Snow","Freezing Rain"," "," ", " ")),
-      aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 12/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=1
-    )+
-    geom_linerange(aes(x = start_x_1, ymin = start_y_1+block_step_1-r, ymax = start_y_1+block_step_1+r), colour="#0047ab", alpha=0.45, size=15)+
-    geom_linerange(aes(x = start_x_1, ymin = start_y_1+2*block_step_1-r, ymax = start_y_1+2*block_step_1+r), colour="#7034fa", alpha=0.45, size=15)+
-    geom_linerange(aes(x = start_x_1, ymin = start_y_1+3*block_step_1-r, ymax = start_y_1+3*block_step_1+r), colour="#330044", alpha=0.45, size=15)
-  return (image)
-}
-
-
-## -------------------------------------------------------------------------------------------------------------
-plot_daytime_return=function(filname){
-  df = read.csv(filname)
-  
-  options(warn=-1)
-  city_name = str_to_title(sub(".*/", "", gsub(" *[0-9].*$", "", filname)))
-  
-  df$datetime=as.Date(df$datetime)
-  df$sunrise=gsub('T','',df$sunrise)
-  df$sunset=gsub('T','',df$sunset)
-  df$sunrise=times(format(as.POSIXct(df$sunrise,format="%Y-%m-%d%H:%M:%S"), format = "%H:%M:%S"))
-  df$sunset=times(format(as.POSIXct(df$sunset,format="%Y-%m-%d%H:%M:%S"), format = "%H:%M:%S"))
-  weather_conditions = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
-                         "Freezing Drizzle/Freezing Rain")
-  df[weather_conditions] = 0
-  for (i in 1:nrow(df)){
-    for (j in weather_conditions){
-      if (j %in% unlist(strsplit(df$conditions[i],", "))){
-        df[[j]][i] = 1
-      } 
-    }
-  }
-  opacity_1=0.92
-  opacity=0.95
-  line_width_1=0.4
-  line_width_2=0.4
-  line_opicaty_1=1
-  line_opicaty_2=0.01
-  num_opacity = 1
-  color_1 = "#ffffff"
-  color_2 = "#545454"
-  color_3 = "#949494"
-  myAngle <-seq(0,-360,length.out = 13)
-  num_offset = 1/50
-  thick_line_width = 0.8
-  thick_line_color = "#ADD8E6"
-  
-  convert_time=function(x) {
-    list_1 = rep(0,length(x))
-    for (i in 1:length(x)){
-      a = as.numeric(unlist(strsplit(format(x[i]),":")))
-      y = a[1]+a[2]/60+a[3]/3600
-      list_1[i] = y
-    }
-    return (list_1)
-  } 
-  
-  full_time = convert_time(times("23:59:59"))
-  offset = 0.6
-  num_size = 5
-  
-  list_time_str = to_vec(for (i in 0:24) as.character(i))
-  
-  list_time_ratio = convert_time(c(times("00:00:00"),times("01:00:00"),times("02:00:00"),times("03:00:00"),times("04:00:00"),times("05:00:00"),times("06:00:00"),times("07:00:00"),times("08:00:00"),times("09:00:00"),times("10:00:00"),times("11:00:00"),times("12:00:00"),times("13:00:00"),times("14:00:00"),times("15:00:00"),times("16:00:00"),times("17:00:00"),times("18:00:00"),times("19:00:00"),times("20:00:00"),times("21:00:00"),times("22:00:00"),times("23:00:00"),times("23:59:59")))/full_time+offset
-  
-  image = ggplot(df,aes(datetime, origin = "2022-01-01"))+
-    geom_ribbon(aes(ymin=list_time_ratio[1], ymax=convert_time(df$sunrise)/full_time+offset), fill="#000000", col="#000000", alpha=0.95,size=1)+
-    geom_ribbon(aes(ymin=convert_time(df$sunset+0.01)/full_time+offset, ymax=list_time_ratio[25]), fill="#000000", col="#000000", alpha=0.95,size=1)+
-    geom_ribbon(aes(ymin=ifelse(is.na(df$sunrise),list_time_ratio[1],list_time_ratio[1]), ymax=ifelse(is.na(df$sunset),list_time_ratio[25],list_time_ratio[1])), fill="#000000", col="#000000", alpha=opacity_1,size=1)+
-    
-    geom_ribbon(aes(ymin=list_time_ratio[2], ymax=list_time_ratio[2]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[3], ymax=list_time_ratio[3]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[5], ymax=list_time_ratio[5]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[6], ymax=list_time_ratio[6]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[8], ymax=list_time_ratio[8]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[9], ymax=list_time_ratio[9]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[11], ymax=list_time_ratio[11]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[12], ymax=list_time_ratio[12]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[14], ymax=list_time_ratio[14]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[15], ymax=list_time_ratio[15]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[17], ymax=list_time_ratio[17]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[18], ymax=list_time_ratio[18]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[20], ymax=list_time_ratio[20]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[21], ymax=list_time_ratio[21]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[23], ymax=list_time_ratio[23]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    geom_ribbon(aes(ymin=list_time_ratio[24], ymax=list_time_ratio[24]), color = color_2, alpha=line_opicaty_2,size=line_width_2)+
-    
-    geom_ribbon(aes(ymin=convert_time(df$sunrise+0.01)/full_time+offset, ymax=ifelse(convert_time(df$sunset)<convert_time(df$sunrise),rep(1+offset,nrow(df)),convert_time(df$sunset)/full_time+offset)), fill="#FFCC33", col="#FFCC33", alpha=opacity,size=1)+
-    geom_ribbon(aes(ymin=list_time_ratio[1], ymax=ifelse(convert_time(df$sunset)<convert_time(df$sunrise),convert_time(df$sunset)/full_time+offset,list_time_ratio[1])), fill="#FFCC33", col="#FFCC33", alpha=opacity,size=0.01)+
-    geom_ribbon(aes(ymin=ifelse(convert_time(df$sunset)==convert_time(df$sunrise),list_time_ratio[1],list_time_ratio[1]), ymax=ifelse(convert_time(df$sunset)==convert_time(df$sunrise),list_time_ratio[25],list_time_ratio[1])), fill="#FFCC33", col="#FFCC33", alpha=opacity,size=0.01)+
-    
-    geom_ribbon(aes(ymin=list_time_ratio[1], ymax=list_time_ratio[1]), color = thick_line_color, alpha=line_opicaty_1,size=thick_line_width)+
-    geom_ribbon(aes(ymin=list_time_ratio[4], ymax=list_time_ratio[4]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[7], ymax=list_time_ratio[7]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[10], ymax=list_time_ratio[10]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[13], ymax=list_time_ratio[13]), color = thick_line_color, alpha=line_opicaty_1,size=thick_line_width)+
-    geom_ribbon(aes(ymin=list_time_ratio[16], ymax=list_time_ratio[16]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[19], ymax=list_time_ratio[19]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[22], ymax=list_time_ratio[22]), color = color_1, alpha=line_opicaty_1,size=line_width_1)+
-    geom_ribbon(aes(ymin=list_time_ratio[25], ymax=list_time_ratio[25]), color = thick_line_color, alpha=line_opicaty_1,size=thick_line_width)+
-    
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[1]+num_offset,4), label = rep(list_time_str[1],4)),
-              aes(x,y, label=label), color = "#FFFFFF", alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[4]+num_offset,4), label = rep(list_time_str[4],4)),
-              aes(x,y, label=label), color = "#FFFFFF", alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[7]+num_offset,4), label = rep(list_time_str[7],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[10]+num_offset,4), label = rep(list_time_str[10],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[13],4), label = rep(list_time_str[13],4)),
-              aes(x,y, label=label), color = "#000000", alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[16],4), label = rep(list_time_str[16],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[19],4), label = rep(list_time_str[19],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[22],4), label = rep(list_time_str[22],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    geom_text(data = data.frame(x = df$datetime[seq(1,365,91)[1:4]],
-                                y = rep(list_time_ratio[25],4), label = rep(list_time_str[25],4)),
-              aes(x,y, label=label), color = color_3, alpha=num_opacity,size=num_size)+
-    
-    geom_text(
-      data = data.frame(x = df$datetime[1],
-                        y = 0, label = city_name),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 35/.pt,
-      color = "#333333",
-      inherit.aes = FALSE
-    )+
-    scale_x_date(labels = date_format("%B"), breaks = date_breaks("month"))+
-    scale_y_time(limits= c(0,offset+1))+theme_bw()+
-    theme( # remove the vertical grid lines
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_line(size=.5, color="lightgray"),
-      # explicitly set the horizontal lines (or they will disappear too)
-      panel.grid.major.y = element_line(size=.6, color="gray"),
-      panel.border = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank()
-    )+ 
-    coord_curvedpolar(theta="x",start=0)+
-    theme(axis.text.x=element_text(margin = margin(t = 0.1), size = 20,colour="#18191a"))+
-    labs(
-      title = paste(city_name,"Daytime Radial 2022"),
-      subtitle = " ",
-      caption = " ",
-      x = NULL,
-      y = NULL, 
-      size = 50
-    )+
-    theme(plot.title = element_text(hjust = 0.5, size = 25))
-  
-  step_1 = 0.02
-  step_2 = 0.05
-  block_opacity = 0.9
-  block_size = 15
-  
-  image_2 = ggdraw(image)+
-    geom_linerange(aes(x=0.82,ymin=0.80, ymax=0.80+step_2-0.02), color = "#000000", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=0.82,ymin=0.80+step_2, ymax=0.80+2*step_2-0.02), color = "#FFCC33", alpha=block_opacity,size=block_size)+
-    geom_text(
-      data = data.frame(x = 0.85+rep(0,1),
-                        y = 0.813+to_vec(for(i in 0:1) i*step_2),
-                        label = c("night time","day time")),
-      aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 12/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=0.8
-    )
-  return (image_2)
-}
-
-
-## -------------------------------------------------------------------------------------------------------------
-plot_weather_condition_return=function(filname){
-  
-  options(warn=-1)
-  
-  df = read.csv(filname)
-  city_name = str_to_title(sub(".*/", "", gsub(" *[0-9].*$", "", filname)))
-  
-  df$datetime=as.Date(df$datetime)
-  weather_conditions = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
-                         "Freezing Drizzle/Freezing Rain")
-  df[weather_conditions] = 0
-  for (i in 1:nrow(df)){
-    for (j in weather_conditions){
-      if (j %in% unlist(strsplit(df$conditions[i],", "))){
-        df[[j]][i] = 1
-      } 
-    }
-  }
-  
-  step_2 = 4
-  myAngle <-seq(0,-360,length.out = 13)
-  opacity_1=1
-  opacity_2=0.7
-  opacity=0.7
-  size_ratio_1 = 7.7
-  size_ratio_clear = 7.5
-  size_ratio = 7.6
-  inner_radius = 10
-  radius_list = to_vec(for (i in 0:5) i*step_2)+inner_radius
-  
-  image = ggplot(df,aes(datetime))+
-    
-    geom_ribbon(aes(ymin=radius_list[4]-0.1, ymax=radius_list[4]), color = "#D3D3D3", alpha=1,size=1.5)+
-    geom_ribbon(aes(ymin=radius_list[3]-0.1, ymax=radius_list[3]), color = "#D3D3D3", alpha=0.2,size=1)+
-    geom_ribbon(aes(ymin=radius_list[2]-0.1, ymax=radius_list[2]), color = "#D3D3D3", alpha=0.2,size=1)+
-    
-    geom_linerange(aes(datetime, ymin = radius_list[1], ymax = radius_list[2]), size = size_ratio_1*radius_list[1]*2*pi/365, color = "#ADD8E6", alpha = opacity_1*df[["Partially cloudy"]])+
-    geom_linerange(aes(datetime, ymin = radius_list[1], ymax = radius_list[2]), size = size_ratio_1*radius_list[1]*2*pi/365, color = "#3A9BDC", alpha = opacity_1*df[["Overcast"]])+
-    geom_linerange(aes(datetime, ymin = radius_list[1], ymax = radius_list[2]), size = size_ratio_clear*radius_list[1]*2*pi/365, color = "#F9D71C", alpha = opacity_1*df[["Clear"]])+ 
-    geom_linerange(aes(datetime, ymin = radius_list[2], ymax = radius_list[3]), size = size_ratio*radius_list[2]*2*pi/365, color = "#0047ab", alpha = opacity*df[["Rain"]])+  
-    geom_linerange(aes(datetime, ymin = radius_list[2], ymax = radius_list[3]), size = size_ratio*radius_list[2]*2*pi/365, color = "#7034fa", alpha = opacity*df[["Snow"]])+  
-    geom_linerange(aes(datetime, ymin = radius_list[3], ymax = radius_list[4]), size = size_ratio*radius_list[3]*2*pi/365, color = "#1d2951", alpha = opacity*df[["Ice"]])+ 
-    geom_linerange(aes(datetime, ymin = radius_list[3], ymax = radius_list[4]), size = size_ratio*radius_list[3]*2*pi/365, color = "#330044", alpha = opacity_2*df[["Freezing Drizzle/Freezing Rain"]])+
-    
-    scale_x_date(labels = date_format("%B"), breaks = date_breaks("month"))+
-    ylim(0, inner_radius+12) +
-    
-    geom_text(
-      data = data.frame(x = df$datetime[1],
-                        y = 0, label = city_name),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 30/.pt,
-      color = "#333333",alpha=0.7,
-      inherit.aes = FALSE
-    )+
-    coord_curvedpolar()+
-    theme_bw()+
-    theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a"))+
-    theme( # remove the vertical grid lines
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      panel.grid.major.y = element_blank(),
-      panel.border = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank()
-    )+
-    labs(
-      title = paste(city_name,"Weather Condition Radial 2022"),
-      subtitle = " ",
-      caption = " ",
-      x = NULL,
-      y = NULL, 
-      size = 20
-    )+
-    theme(plot.title = element_text(hjust = 0.5, size=25))
-  
-  step = 0.02
-  weather_conditions_1 = c("Clear","Partially cloudy","Overcast","Rain","Snow","Ice",
-                           "Freezing Rain")
-  
-  block_size = 15
-  block_opacity = 0.8
-  block_offset = 0.002
-  block_x = 0.81
-  
-  image_1 = ggdraw(image)+
-    geom_text(
-      data = data.frame(x = 0.85+rep(0,7),
-                        y = 0.8+to_vec(for(i in 1:length(weather_conditions)) i*step),
-                        label = weather_conditions_1),
-      aes(x, y, label = label),
-      hjust = 0, angle = 0, size = 15/.pt,
-      color = "black",
-      inherit.aes = FALSE,alpha=0.8
-    )+
-    geom_linerange(aes(x=block_x,ymin=0.81, ymax=0.81+step-block_offset), color = "#F9D71C", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+step, ymax=0.81+2*step-block_offset), color = "#ADD8E6", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+2*step, ymax=0.81+3*step-block_offset), color = "#3A9BDC", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+3*step, ymax=0.81+4*step-block_offset), color = "#0047ab", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+4*step, ymax=0.81+5*step-block_offset), color = "#7034fa", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+5*step, ymax=0.81+6*step-block_offset), color = "#1d2951", alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=block_x,ymin=0.81+6*step, ymax=0.81+7*step-block_offset), color = "#330044", alpha=block_opacity,size=block_size)
-  return (image_1)
-}
-
-
-
-## -------------------------------------------------------------------------------------------------------------
-plot_air_quality_return=function(filname){
-  options(warn=-1)
-  df = read.csv(filname)
-  filname_list = strsplit(filname, "\\\\")
-  filname = filname_list[[1]][length(filname_list[[1]])]
-  city_name = str_to_title(sub(".*/", "", gsub("-air-quality.csv", "", filname)))
-  start_date = as.Date("2022-01-01")
-  end_date = as.Date("2022-12-31")
-  df$date=as.Date(df$date)
-  colnames(df)[1] <- "datetime"
-  
-  df = df %>%
-    filter(df$datetime %between% c(start_date, end_date))
-  all_dates = seq(start_date, end_date, by = "day")
-  missing_dates = as.Date(setdiff(all_dates,c(df$datetime)), origin = "1970-01-01")
-  if (length(missing_dates) > 0) {
-    na_matrix <- matrix(-1, nrow = length(missing_dates), ncol = ncol(df)-1)
-    na_df <- as.data.frame(na_matrix)
-    date_df = data.frame(date = missing_dates)
-    new_rows = cbind(date_df,na_df)
-    colnames(new_rows) <- colnames(df)
-    df = rbind(df, new_rows)
-  }
-  df = df[order(df$datetime),]
-  
-  if(! "pm25" %in% colnames(df)) {
-    df$pm25 = -1
-  }
-  if(! "pm10" %in% colnames(df)) {
-    df$pm10 = -1
-  }
-  if(! "o3" %in% colnames(df)) {
-    df$o3 = -1
-  }
-  if(! "no2" %in% colnames(df)) {
-    df$no2 = -1
-  }
-  if(! "so2" %in% colnames(df)) {
-    df$so2 = -1
-  }
-  if(! "co" %in% colnames(df)) {
-    df$co = -1
-  }
-  
-  df[colnames(df)[-which(colnames(df) == "datetime")]] <- data.frame(lapply(df[colnames(df)[-which(colnames(df) == "datetime")]], function(x) ifelse(is.na(x), -1, x)))
-  
-  categories = c("#00787E","#059A65","#85BD4B","#FFDD33","#FFBA33","#FE9633","#E44933","#CA0035","#970068","#78003F","#4E0016")
-  breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200, 300, 400, 600)
-  step_2 = 4
-  myAngle <-seq(0,-360,length.out = 13)
-  opacity_1=0.2
-  opacity_2=0.8
-  size_ratio_1 = 4.2
-  size_ratio_clear = 4.1
-  size_ratio = 5
-  inner_radius = 10
-  radius_list = to_vec(for (i in 0:9) i*step_2)+inner_radius
-  text_y_1 = 0.185
-  text_y_2 = 0.22
-  text_y_3 = 0.22
-  offset_1 = 0.2
-  
-  image = ggplot(df,aes(datetime))+
-    
-    geom_ribbon(aes(ymin=radius_list[7]-offset_1, ymax=radius_list[7]+offset_1), color = "#D3D3D3", alpha=1,size=1.5)+
-    geom_ribbon(aes(ymin=radius_list[6]-offset_1, ymax=radius_list[6]+offset_1), color = "#D3D3D3", alpha=0.2,size=1)+
-    geom_ribbon(aes(ymin=radius_list[5]-offset_1, ymax=radius_list[5]+offset_1), color = "#D3D3D3", alpha=0.2,size=1)+
-    geom_ribbon(aes(ymin=radius_list[4]-offset_1, ymax=radius_list[4]+offset_1), color = "#D3D3D3", alpha=1,size=1.5)+
-    geom_ribbon(aes(ymin=radius_list[3]-offset_1, ymax=radius_list[3]+offset_1), color = "#D3D3D3", alpha=0.2,size=1)+
-    geom_ribbon(aes(ymin=radius_list[2]-offset_1, ymax=radius_list[2]+offset_1), color = "#D3D3D3", alpha=0.2,size=1)+
-    
-    geom_linerange(aes(datetime, ymin = radius_list[1]+0.5, ymax = radius_list[2]-0.5), size = size_ratio_1*radius_list[1]*2*pi/365, color = cut(df$pm25, breaks = breaks, labels = categories), alpha = ifelse(df$pm25<51,opacity_1,opacity_2))+
-    geom_linerange(aes(datetime, ymin = radius_list[2]+0.5, ymax = radius_list[3]-0.5), size = size_ratio_1*radius_list[2]*2*pi/365, color = cut(df$pm10, breaks = breaks, labels = categories), alpha = ifelse(df$pm10<51,opacity_1,opacity_2))+
-    geom_linerange(aes(datetime, ymin = radius_list[3]+0.5, ymax = radius_list[4]-0.5), size = size_ratio_clear*radius_list[3]*2*pi/365, color = cut(df$o3, breaks = breaks, labels = categories), alpha = ifelse(df$o3<51,opacity_1,opacity_2))+
-    geom_linerange(aes(datetime, ymin = radius_list[4]+0.5, ymax = radius_list[5]-0.5), size = size_ratio_clear*radius_list[4]*2*pi/365, color = cut(df$no2, breaks = breaks, labels = categories), alpha = ifelse(df$no2<51,opacity_1,opacity_2))+ 
-    geom_linerange(aes(datetime, ymin = radius_list[5]+0.5, ymax = radius_list[6]-0.5), size = size_ratio_clear*radius_list[5]*2*pi/365, color = cut(df$so2, breaks = breaks, labels = categories), alpha = ifelse(df$so2<51,opacity_1,opacity_2))+ 
-    geom_linerange(aes(datetime, ymin = radius_list[6]+0.5, ymax = radius_list[7]-0.5), size = size_ratio_clear*radius_list[6]*2*pi/365, color = cut(df$co, breaks = breaks, labels = categories), alpha = ifelse(df$co<51,opacity_1,opacity_2))+ 
-    scale_x_date(labels = date_format("%B"), breaks = date_breaks("month"))+
-    ylim(0, inner_radius+7*step_2) +  
-    geom_text(
-      data = data.frame(x = df$datetime[1],
-                        y = 0, label = city_name),
-      aes(x, y, label = label),
-      hjust = 0.5, vjust = 0.1, angle = 0, size = 28/.pt,
-      color = "#333333",alpha=0.7,
-      inherit.aes = FALSE
-    )+
-    coord_curvedpolar()+
-    theme_bw()+
-    theme(plot.title = element_text(hjust = 0.5)) +
-    theme(axis.text.x=element_text(margin = margin(t = 10), size = 20,colour="#18191a"))+
-    theme( # remove the vertical grid lines
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      panel.grid.major.y = element_blank(),
-      panel.border = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank()
-    )+
-    labs(
-      title = paste(city_name,"Air Quality Index Radial 2022"),
-      subtitle = " ",
-      caption = " ",
-      x = NULL,
-      y = NULL, 
-      size = 20
-    )+
-    theme(plot.title = element_text(hjust = 0.5,size = 25))
-  
-  df_2 = data.frame(x = rep(0.486,6),y = 0.598+rev(seq(0,text_y_1,text_y_1/5)), label = rev(c("PM25","PM10"," O3","NO2","SO2"," CO")))
-  df_3 = data.frame(x = rep(0.77,7),y = 0.749+rev(seq(0,text_y_3,text_y_3/6)), label = c("#FFFFFF","#00e400","#ffff00","#ff7e00","#ff0000","#8f3f97","#7e0023"))
-  df_4 = data.frame(x = rep(0.805,7),y = 0.75+rev(seq(0,text_y_2,text_y_2/6)), label = c("AQI \n Numbers","0 - 50","51 - 100","101 - 150","151 - 200","201 - 300","301 - 500"))
-  df_5 = data.frame(x = rep(0.88,7),y = 0.75+rev(seq(0,text_y_2,text_y_2/6)), label = c("AQI \n Category \n Descriptor","Good","Moderate","Unhealthy for \n Sensitive Groups","Unhealthy","Very \n Unhealthy","Hazardous"))
-  
-  block_y_offset = 0.0186
-  block_opacity = 0.8
-  block_size = 15
-  
-  color_list = c("#FFFFFF","#00787E","#059A65","#85BD4B","#FFDD33","#FFBA33","#FE9633","#E44933","#CA0035","#970068","#78003F","#4E0016")
-  
-  image_1 = ggdraw(image)+geom_text(data = df_2, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 15/.pt, alpha=0.7)+
-    geom_text(data = df_4, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 12/.pt, alpha=1)+
-    geom_text(data = df_5, aes(x, y, label = label), color = "#333333", inherit.aes = FALSE, hjust = 0, angle = 0, size = 12/.pt, alpha=1)+
-    geom_linerange(aes(x=df_3$x[1],ymin=df_3$y[1]-block_y_offset, ymax=df_3$y[1]+block_y_offset), color = color_list[1], alpha=0,size=block_size)+
-    geom_linerange(aes(x=df_3$x[2],ymin=df_3$y[2], ymax=df_3$y[2]+block_y_offset), color = color_list[2], alpha=0.4,size=block_size)+
-    geom_linerange(aes(x=df_3$x[2],ymin=df_3$y[2]-block_y_offset, ymax=df_3$y[2]), color = color_list[3], alpha=0.4,size=block_size)+
-    geom_linerange(aes(x=df_3$x[3],ymin=df_3$y[3], ymax=df_3$y[3]+block_y_offset), color = color_list[4], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[3],ymin=df_3$y[3]-block_y_offset, ymax=df_3$y[3]), color = color_list[5], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[4],ymin=df_3$y[4], ymax=df_3$y[4]+block_y_offset), color = color_list[6], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[4],ymin=df_3$y[4]-block_y_offset, ymax=df_3$y[4]), color = color_list[7], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[5],ymin=df_3$y[5], ymax=df_3$y[5]+block_y_offset), color = color_list[8], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[5],ymin=df_3$y[5]-block_y_offset, ymax=df_3$y[5]), color = color_list[9], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[6],ymin=df_3$y[6]-block_y_offset, ymax=df_3$y[6]+block_y_offset), color = color_list[10], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[7],ymin=df_3$y[7], ymax=df_3$y[7]+block_y_offset), color = color_list[11], alpha=block_opacity,size=block_size)+
-    geom_linerange(aes(x=df_3$x[7],ymin=df_3$y[7]-block_y_offset, ymax=df_3$y[7]), color = color_list[12], alpha=block_opacity,size=block_size)
-  
-  return (image_1)
-}
-
-plot_weather_precipitation_return_new <- function(city,unit){
-  plot_weather_precipitation_return(paste(weather_files_path,
-                                          weather_cities_dict[city],
-                                          sep="/"),unit)}
-
-plot_daytime_return_new <- function(city){
-  plot_daytime_return(paste(weather_files_path,
-                            weather_cities_dict[city],
-                            sep="/"))}
-
-plot_weather_condition_return_new <- function(city){
-  plot_weather_condition_return(paste(weather_files_path,
-                                      weather_cities_dict[city],
-                                      sep="/"))}
-
-plot_air_quality_return_new <- function(city){
-  plot_air_quality_return(paste(air_files_path,
-                                air_cities_dict[city],
-                                sep="/"))}
+source("functions.R")
 
 server <- function(input, output) {
   
@@ -749,6 +34,38 @@ server <- function(input, output) {
     }
   })
   
+  output$svg_5_1 <- renderPlot({
+    if (input$city_1 != ""){
+      plot_weather_micelaneous_return_new(input$city_1, input$unit_compare)
+    }else{
+      output$svg_5_1=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_6_1 <- renderPlot({
+    if (input$city_1 != ""){
+      plot_precipitation_snow_return_new(input$city_1, input$unit_compare)
+    }else{
+      output$svg_6_1=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_7_1 <- renderPlot({
+    if (input$city_1 != ""){
+      plot_wind_return_new(input$city_1, input$unit_compare)
+    }else{
+      output$svg_7_1=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_8_1 <- renderPlot({
+    if (input$city_1 != ""){
+      plot_humidity_return_new(input$city_1, input$unit_compare)
+    }else{
+      output$svg_8_1=HTML("", collapse = "\n")
+    }
+  })
+  
   output$svg_1_2 <- renderPlot({
     if (input$city_2 != ""){
       plot_weather_precipitation_return_new(input$city_2, input$unit_compare)
@@ -781,6 +98,38 @@ server <- function(input, output) {
     }
   })
   
+  output$svg_5_2 <- renderPlot({
+    if (input$city_2 != ""){
+      plot_weather_micelaneous_return_new(input$city_2, input$unit_compare)
+    }else{
+      output$svg_5_2=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_6_2 <- renderPlot({
+    if (input$city_2 != ""){
+      plot_precipitation_snow_return_new(input$city_2, input$unit_compare)
+    }else{
+      output$svg_6_2=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_7_2 <- renderPlot({
+    if (input$city_2 != ""){
+      plot_wind_return_new(input$city_2, input$unit_compare)
+    }else{
+      output$svg_7_2=HTML("", collapse = "\n")
+    }
+  })
+  
+  output$svg_8_2 <- renderPlot({
+    if (input$city_1 != ""){
+      plot_humidity_return_new(input$city_2, input$unit_compare)
+    }else{
+      output$svg_8_2=HTML("", collapse = "\n")
+    }
+  })
+  
   # options(encoding = "UTF-8")
   df_1 <- reactive({
     df = df[df$Climate.Names==climate_name_dict[input$climate_1],c("city_name","Country")]
@@ -793,16 +142,16 @@ server <- function(input, output) {
     df = df[df$city_name==input$city_1|df$city_name==input$city_2,
             c("city_name","Country","First.Administration","latitude..degree.",
               "longitude..degree.","elevation..m.","dist_to_sea..km.","Climate.Names",
-              "Koppen.climate","Group","Precipitation.Type","Level.of.Heat" )]
+              "Koppen.climate","Group","Precipitation.Type","Level.of.Heat", "Color.Code")]
     df$latitude..degree. <- ifelse(df$latitude..degree. > 0, 
                                    paste(as.character(df$latitude..degree.), "\u00B0","N"), 
                                    paste(as.character(-df$latitude..degree.), "\u00B0","S"))
     df$longitude..degree. <- ifelse(df$longitude..degree. > 0, 
                                     paste(as.character(df$longitude..degree.), "\u00B0","E"), 
                                     paste(as.character(-df$longitude..degree.), "\u00B0","W"))
-    names(df) <- c("City","Country/Region","First Administration","Latitude (\u00B0)",
+    names(df) <- c("City","Country/Region","First-Level Administrative Division","Latitude (\u00B0)",
                    "Longitude (\u00B0)","Elevation (m)","Distance to the Sea (km)","Koppen Climate",
-                   "Climate Code","Group","Precipitation Type","Level of Heat" )
+                   "Climate Code","Group","Precipitation Type","Level of Heat", "Color Code")
     row.names(df) <- seq_along(df[,1])
     df
   })
@@ -812,12 +161,12 @@ server <- function(input, output) {
             c("city_name","Country","mean_temp..Celsius.","mean_solarradiation..W.m2.",
               "mean_humidity....","mean_windspeed..kph.","temp_std..Celsius.","mean_temp_range..Celsius.",
               "mean_abs_temp_diff_1..Celsius.","precip_std..mm.","precip_sum..mm." ,"temp.precip.corr",
-              "humid.radiat.corr", "humid.precip.corr", "temp.radiat.corr")]
+              "humid.radiat.corr", "humid.precip.corr", "temp.radiat.corr", "Color.Code")]
     
     names(df) <- c("City","Country/Region","Annual Mean Temp (\u00B0C)","Annual Mean Solarradiation (W/m2)",
                    "Annual Mean Humidity (\u0025)","Mean Windspeed (kph)","Annual Temp Std (\u00B0C)","Annual Mean Temp Range (\u00B0C)",
                    "Annual Mean Temp Diff (\u00B0C)","Precip Std (mm)","Precip Sum (mm)" ,"Temp Precip Corr",
-                   "Humid Radiat Corr", "Humid Precip Corr", "Temp Radiat Corr")
+                   "Humid Radiat Corr", "Humid Precip Corr", "Temp Radiat Corr", "Color Code")
     row.names(df) <- seq_along(df[,1])
     df
   })
@@ -834,14 +183,26 @@ server <- function(input, output) {
                   options = list(dom = 't', paging = FALSE))
   })
   
-  output$df_2 = DT::renderDataTable({
-    DT::datatable(df_2(), escape = FALSE, 
-                  options = list(dom = 't', paging = FALSE))
+  output$df_2 = renderReactable({
+    color_vec = df_2()[["Color Code"]]
+    reactable(df_2()[,-ncol(df_2())], searchable = TRUE, defaultPageSize = 10, 
+              rowStyle = function(index) {
+                list(background = color_vec[index],
+                     color = contrast_color(color_vec[index])
+                )
+              }
+    )
   })
   
-  output$df_3 = DT::renderDataTable({
-    DT::datatable(df_3(), escape = FALSE, 
-                  options = list(dom = 't', paging = FALSE))
+  output$df_3 = renderReactable({
+    color_vec = df_3()[["Color Code"]]
+    reactable(df_3()[,-ncol(df_3())], searchable = TRUE, defaultPageSize = 10, 
+              rowStyle = function(index) {
+                list(background = color_vec[index],
+                     color = contrast_color(color_vec[index])
+                )
+              }
+    )
   })
   
   output$df_4 = DT::renderDataTable({
@@ -914,19 +275,92 @@ server <- function(input, output) {
     df
   })
   
-  output$df_5 = DT::renderDataTable({
-    DT::datatable(df_5(), escape = FALSE, 
-                  options = list(dom = 't', paging = FALSE))
+  df_10 <- reactive({
+    if (input$country_2 == "(All)"){
+    } else {
+      df = df[df$Country == input$country_2, ]
+    }
+    if (input$climate_3 == "(All)"){
+    } else {
+      df = df[df$Climate.Names==climate_name_dict[input$climate_3], ]
+    }
+    df <- df %>% 
+      group_by(`Koppen.climate`, `Color.Code`) %>% 
+      summarise(Cities = paste(city_name, collapse = ", ")) %>% 
+      arrange(`Koppen.climate`)
+    df
+  })
+  
+  
+  output$df_5 = renderReactable({
+    color_vec = df_10()$Color.Code
+    reactable(df_5(), searchable = TRUE, defaultPageSize = 10, 
+              columns = list(
+      "Koppen Climate Classification" = colDef(width = 200),
+      "Climate Code" = colDef(width = 80),
+      "Cities" = colDef(width = 650)
+    ),
+    rowStyle = function(index) {
+      list(background = color_vec[index],
+           color = contrast_color(color_vec[index])
+           )
+    }
+  )
   })
   
   df_8 <- reactive({
-    df_index
-  })
+    if (input$climate_3 == "(All)"){
+    } else {
+      df_index = df_index[df_index$Climate==climate_code_dict[input$climate_3], ]
+    }
+    df = df_index %>% arrange(`Climate`)
+    df})
   
-  output$df_8 = DT::renderDataTable({
-    DT::datatable(df_8(), escape = FALSE, 
-                  options = list(dom = 't', paging = FALSE))
-  })
+  output$df_8 = renderReactable({
+    color_vec = df_10()$Color.Code
+    reactable(df_8(), searchable = TRUE,defaultPageSize = 10, 
+              columns = list(
+                "Climate" = colDef(width = 70),
+                "1st" = colDef(width = 100),
+                "2nd" = colDef(width = 100),
+                "3rd" = colDef(width = 100),
+                "Climate Name" = colDef(width = 100),
+                "Description" = colDef(width = 1000)
+             ),
+              rowStyle = function(index) {
+                list(background = if (is.null(climate_color_dict[[df_8()$Climate[index]]])){
+                  "#FFFFFF"
+                } else {
+                  climate_color_dict[[df_8()$Climate[index]]]
+                },
+                     color = contrast_color(if (is.null(climate_color_dict[[df_8()$Climate[index]]])){
+                       "#FFFFFF"
+                       } else {
+                         climate_color_dict[[df_8()$Climate[index]]]
+                       })
+                ) 
+                }
+          )
+        })
+  
+  # output$df_8 = DT::renderDataTable({
+  #   DT::datatable(df_8(), escape = FALSE, 
+  #                 options = list(dom = 't', paging = FALSE))
+  # })
+  
+  df_9 <- reactive({
+    df_descriptions
+     if (input$climate_3 == "(All)"){
+     } else {
+       df_descriptions = df_descriptions[df_descriptions$Climate.Code==climate_code_dict[input$climate_3], ]
+     }
+     df_descriptions
+   })
+  
+   output$df_9 = DT::renderDataTable({
+     DT::datatable(df_9(), escape = FALSE, 
+                   options = list(dom = 't', paging = FALSE))
+   })
   
   output$text_5 = renderText({
     "Climates and Cities:"
@@ -936,6 +370,28 @@ server <- function(input, output) {
     df= df[df$city_name==input$city_1|df$city_name==input$city_2,]
     row.names(df) <- seq_along(df[,1])
     df
+  })
+  
+  output$df_10 = renderReactable({
+    color_vec = df_wind$Color
+    df = subset(df_wind, select = -Color)
+    reactable(df, searchable = TRUE,defaultPageSize = 10, 
+              columns = list(
+                "Beaufort number" = colDef(width = 70),
+                "knot（kt)" = colDef(width = 60),
+                "km/h" = colDef(width = 50),
+                "m/s" = colDef(width = 50),
+                "Wave height (m)" = colDef(width = 100),
+                "Description" = colDef(width = 70),
+                "Sea conditions" = colDef(width = 400),
+                "Land conditions" = colDef(width = 400)
+              ),
+              rowStyle = function(index) {
+                list(background = color_vec[index],
+                color = contrast_color(color_vec[index])
+                )
+              }
+    )
   })
   
   output$map_2 <- renderLeaflet({
@@ -1028,20 +484,20 @@ server <- function(input, output) {
     stress_opacity=1
     original_size=2
     original_opacity=0.8
-  if (input$country_3 == "(All)" & input$climate_4 == "(All)") {
-    size_vec = rep(original_size,length(df$city_name))
-    opacity_vec = rep(original_opacity,length(df$city_name))
-  } else {
-    if (input$country_3 != "(All)" & input$climate_4 == "(All)") {
-    size_vec = ifelse(df$Country==input$country_3,stress_size,normal_size) 
-    opacity_vec = ifelse(df$Country==input$country_3,stress_opacity,normal_opacity) 
-    } else if (input$country_3 == "(All)" & input$climate_4 != "(All)"){
-    size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_size,normal_size)
-    opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_opacity,normal_opacity) 
-    } else if (input$country_3 != "(All)" & input$climate_4 != "(All)"){
-      size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_size,normal_size)
-      opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
-    }
+    if (input$country_3 == "(All)" & input$climate_4 == "(All)") {
+      size_vec = rep(original_size,length(df$city_name))
+      opacity_vec = rep(original_opacity,length(df$city_name))
+    } else {
+      if (input$country_3 != "(All)" & input$climate_4 == "(All)") {
+        size_vec = ifelse(df$Country==input$country_3,stress_size,normal_size) 
+        opacity_vec = ifelse(df$Country==input$country_3,stress_opacity,normal_opacity) 
+      } else if (input$country_3 == "(All)" & input$climate_4 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_opacity,normal_opacity) 
+      } else if (input$country_3 != "(All)" & input$climate_4 != "(All)"){
+        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_size,normal_size)
+        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
+      }
     }
     p = ggplot(data = df)+
       geom_point(aes(x,
@@ -1104,7 +560,7 @@ server <- function(input, output) {
             colors = df$Color.Code,
             opacity = opacity_vec,
             marker = list(size = size_vec)
-            )%>%
+    )%>%
       layout(scene = list(xaxis = list(title = input$plot_2_x_axis), 
                           yaxis = list(title = input$plot_2_y_axis), 
                           zaxis = list(title = input$plot_2_z_axis))
@@ -1134,45 +590,534 @@ server <- function(input, output) {
         opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_opacity,normal_opacity)
       }
     }
-     popup = paste0("<strong>City:</strong> ", df$city_name, "<br>",
-                    "<strong>Country/Region:</strong> ", df$Country, "<br>",
-                    "<strong>Latitude:</strong> ", df$lat, "<br>",
-                    "<strong>Longitude:</strong> ", df$long, "<br>",
-                    "<strong>Elevation (m):</strong> ", df$elevation..m., "<br>",
-                    "<strong>Distance to the Sea (km):</strong> ", df$dist_to_sea..km., "<br>",
-                    "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
-                    "<strong>Climate Code:</strong> ", df$Koppen.climate, "<br>",
-                    "<strong>",input$map_3_feature,":</strong> ", df[[viz_cols_mapping[[input$map_3_feature]]]], "<br>")
-     rc2 <- colorRampPalette(colors = c("green", "red"), space = "Lab")(180)
-     pal <- colorQuantile(
-       palette = rc2,
-       domain = as.numeric(df[[viz_cols_mapping[[input$map_3_feature]]]]),
-       n = 10,
-       na.color = "#808080"
-     )
-     qpal_colors <- unique(pal(sort(df[[viz_cols_mapping[[input$map_3_feature]]]]))) # hex codes
-     qpal_labs <- round(quantile(df[[viz_cols_mapping[[input$map_3_feature]]]], seq(0, 1, 1/(length(qpal_colors))), na.rm=TRUE),2)
-     qpal_labs <- paste(lag(qpal_labs), qpal_labs, sep = " - ")[-1]
-     
-       leaflet(data = df) %>%
-           addTiles() %>%
-           addCircleMarkers(lat = as.numeric(df$latitude..degree.), 
-                                          lng = as.numeric(df$longitude..degree.),
-                                          label = lapply(as.list(popup), HTML),
-                                          radius = 6,color = ~pal(df[[viz_cols_mapping[[input$map_3_feature]]]]),
-                                          stroke = FALSE, fillOpacity = opacity_vec)%>%
-          addLegend("bottomright",
-                    title = input$map_3_feature,
-                    labFormat = labelFormat(prefix = ""),
-                    colors = qpal_colors, labels = qpal_labs, 
-                    opacity = 1)
+    popup = paste0("<strong>City:</strong> ", df$city_name, "<br>",
+                   "<strong>Country/Region:</strong> ", df$Country, "<br>",
+                   "<strong>Latitude:</strong> ", df$lat, "<br>",
+                   "<strong>Longitude:</strong> ", df$long, "<br>",
+                   "<strong>Elevation (m):</strong> ", df$elevation..m., "<br>",
+                   "<strong>Distance to the Sea (km):</strong> ", df$dist_to_sea..km., "<br>",
+                   "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
+                   "<strong>Climate Code:</strong> ", df$Koppen.climate, "<br>",
+                   "<strong>",input$map_3_feature,":</strong> ", df[[viz_cols_mapping[[input$map_3_feature]]]], "<br>")
+    rc2 <- colorRampPalette(colors = c("green", "red"), space = "Lab")(180)
+    pal <- colorQuantile(
+      palette = rc2,
+      domain = as.numeric(df[[viz_cols_mapping[[input$map_3_feature]]]]),
+      n = 10,
+      na.color = "#808080"
+    )
+    qpal_colors <- unique(pal(sort(df[[viz_cols_mapping[[input$map_3_feature]]]]))) # hex codes
+    qpal_labs <- round(quantile(df[[viz_cols_mapping[[input$map_3_feature]]]], seq(0, 1, 1/(length(qpal_colors))), na.rm=TRUE),2)
+    qpal_labs <- paste(lag(qpal_labs), qpal_labs, sep = " - ")[-1]
+    
+    leaflet(data = df) %>%
+      addTiles() %>%
+      addCircleMarkers(lat = as.numeric(df$latitude..degree.), 
+                       lng = as.numeric(df$longitude..degree.),
+                       label = lapply(as.list(popup), HTML),
+                       radius = 6,color = ~pal(df[[viz_cols_mapping[[input$map_3_feature]]]]),
+                       stroke = FALSE, fillOpacity = opacity_vec)%>%
+      addLegend("bottomright",
+                title = input$map_3_feature,
+                labFormat = labelFormat(prefix = ""),
+                colors = qpal_colors, labels = qpal_labs, 
+                opacity = 1)
   })
   
+  output$mapImage <- renderImage({
+    if (input$climate_group_1 == "(All)"){list(src = paste("maps/",climate_zone_dict[[input$climate_group_1]],sep=""), 
+                                               contentType = "Images/png", 
+                                               width = 900, height = 500,
+                                               alt = paste("The Distribution of World's Climates"))} else {
+          list(src = paste("maps/",climate_zone_dict[[input$climate_group_1]],sep=""), 
+         contentType = "Images/png", 
+         width = 900, height = 600,
+        alt = paste("The Distribution of ",input$climate_group_1," Climates"))
+        }
+  }, deleteFile = F)
+  
   output$contribution_text = renderUI({
-    HTML("<p>This project is created by Yifei Sun.</p>
-<p>Contribute to this project by uploading more data to <a href='https://github.com/YifeiSun01/Weather-Visualization/tree/main/data'>this Github</a>.</p>
+    HTML("<p>This project is created by Yifei Sun, as the final project of SI 649 Information Visualization at the University of Michigan</p>
+    <p>Inspired by <a href='http://www.weather-radials.com/'>WEATHER RADIALS</a></p>
+<p>Contribute to this project by uploading more data to <a href='https://github.com/YifeiSun01/Weather-Visualization/tree/main/data'>this Github page</a>.</p>
 <p>Data Source:</p> 
-<p><a href='https://www.visualcrossing.com/weather/'>VISUAL CROSSING WEATHER</a></p>
-<p><a href='https://aqicn.org/data-platform/register/#form'>Air Quality Historical Data Platform</a></p>")
+<p><a href='https://www.visualcrossing.com'>VISUAL CROSSING WEATHER</a></p>
+<p><a href='https://aqicn.org/data-platform/register/#form'>Air Quality Historical Data Platform</a></p>
+<p><a href='https://www.tamdistrict.org/cms/lib/CA01000875/Centricity/Domain/986/ClimateControls14.pdf'>What	Causes	Different	Climates?
+</a></p>
+<p><a href='https://en.wikipedia.org/wiki/K%C3%B6ppen_climate_classification'>Köppen climate classification</a></p>
+         ")
   })
+  
+  output$explain_text_1 = renderUI({
+    HTML("<p><b>Relative humidity:</b></p>
+    <p>Relative humidity, often expressed as a percentage, indicates a present state of absolute humidity relative to a maximum humidity given the same temperature.</p>
+    <p>The ideal relative humidity for health and comfort is somewhere between 30-50% humidity, according to the Mayo Clinic. This means that the air holds between 30-50% of the maximum amount of moisture it can contain.</p>
+    <p><b>Feelslike Temperature:</b></p>
+    <p>The 'feels like' temperature is a measurement of how hot or cold it really feels like outside. The 'Feels Like' temperature relies on environmental data including the ambient air temperature, relative humidity, and wind speed to determine how weather conditions feel to bare skin.</p>
+    <p>Different combinations of temperature, humidity, and wind speed can increase the sensation of being hot or cold. For example, skin that is exposed to wind and cold temperatures will make a person feel that it is colder outside than it really is because heat is drawn away from the body at a faster rate. As another example, a day that is very humid may feel hotter than it really is outside because your body sweat does not evaporate (and thereby cool the body) the way it is intended.</p>
+         <p>The World Health Organization in 1987 found that comfortable indoor temperatures of between 18 and 24 °C (64 and 75 °F) were not associated with health risks for healthy adults with appropriate clothing, humidity, and other factors.</p>"
+          )
+  })  
+  
+  output$explain_text_2 = renderUI({
+    HTML("<p><b>Dew Points/Dew Point Temperature:</b></p>
+<p>The dew point is the temperature the air needs to be cooled to (at constant pressure) in order to achieve a relative humidity (RH) of 100%.At this point the air cannot hold more water in the gas form. If the air were to be cooled even more, water vapor would have to come out of the atmosphere in the liquid form, usually as fog or precipitation.</p>
+<p>The higher the dew point rises, the greater the amount of moisture in the air. This directly affects how 'comfortable' it will feel outside. Many times, relative humidity can be misleading. For example, a temperature of 30 and a dew point of 30 will give you a relative humidity of 100%, but a temperature of 80 and a dew point of 60 produces a relative humidity of 50%. It would feel much more 'humid' on the 80 degree day with 50% relative humidity than on the 30 degree day with a 100% relative humidity. This is because of the higher dew point.</p>
+</br>
+<p>General comfort levels USING <b> DEW POINT </b> that can be expected during the summer months:</p>
+<ol>
+<li>less than or equal to 55: dry and comfortable</li>
+<li>between 55 and 65: becoming 'sticky' with muggy evenings</li>
+<li>greater than or equal to 65: lots of moisture in the air, becoming oppressive</li>
+         </ol>"
+         )
+  })
+  
+  output$explain_text_3 = renderUI({
+    HTML("<p><b>Ultra Violet Index:</b></p>
+    <p>The UVI is a measure of the level of UV radiation.</p>
+<p>The values of the index range from zero upward - the higher the UVI, the greater the potential for damage to the skin and eye, and the less time it takes for harm to occur.</p>
+<p>The UVI is an important vehicle to alert people about the need to use sun protection.</p>
+  <p><table>
+  <tr>
+  <th><b>UV index</b></th>
+  <th><b>Action</b></th>
+  </tr>
+  <tr>
+  <td>0 to 2</td>
+  <td>You can safely enjoy being outside!</td>
+  </tr>
+  <tr>
+  <td>3 to 7</td>
+  <td>Seek shade during midday hours! Slip on a shirt, slop on sunscreen and slap on hat!</td>
+  </tr>
+  <tr>
+  <td>8 and above</td>
+  <td>Avoid being outside during midday hours! Make sure you seek shade! Shirt, sunscreen and hat are a must!</td>
+  </tr>
+  </table></p>     
+         "
+    )
+  })  
+  
+  output$explain_text_4 = renderUI({
+    HTML(
+  "<p><b>Air Quality Index /AQI:</b></p>
+  <p>An air quality index (AQI) is used by government agencies to communicate to the public how polluted the air currently is or how polluted it is forecast to become. AQI information is obtained by averaging readings from an air quality sensor, which can increase due to vehicle traffic, forest fires, or anything that can increase air pollution. Pollutants tested include particulates, ozone, nitrogen dioxide, carbon monoxide, sulphur dioxide, among others.</p>
+  <p><table>
+  <tr>
+  <th><b>AQI</b></th>
+  <th><b>Air Pollution Level</b></th>
+  <th><b>Health Implications</b></th>
+  <th><b>Cautionary Statement (for PM2.5)</b></th>
+  </tr>
+  <tr>
+  <td>0 - 50</td>
+  <td>Good</td>
+  <td>Air quality is considered satisfactory, and air pollution poses little or no risk</td>
+  <td>None</td>
+  </tr>
+  <tr>
+  <td>51 -100</td>
+  <td>Moderate</td>
+  <td>Air quality is acceptable; however, for some pollutants there may be a moderate health concern for a very small number of people who are unusually sensitive to air pollution.</td>
+  <td>Active children and adults, and people with respiratory disease, such as asthma, should limit prolonged outdoor exertion.</td>
+  </tr>
+  <tr>
+  <td>101-150</td>
+  <td>Unhealthy for Sensitive Groups</td>
+  <td>Members of sensitive groups may experience health effects. The general public is not likely to be affected.</td>
+  <td>Active children and adults, and people with respiratory disease, such as asthma, should limit prolonged outdoor exertion.</td>
+  </tr>
+  <tr>
+  <td>151-200</td>
+  <td>Unhealthy</td>
+  <td>Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects</td>
+  <td>Active children and adults, and people with respiratory disease, such as asthma, should avoid prolonged outdoor exertion; everyone else, especially children, should limit prolonged outdoor exertion</td>
+  </tr>
+  <tr>
+  <td>201-300</td>
+  <td>Very Unhealthy</td>
+  <td>Health warnings of emergency conditions. The entire population is more likely to be affected.</td>
+  <td>Active children and adults, and people with respiratory disease, such as asthma, should avoid all outdoor exertion; everyone else, especially children, should limit outdoor exertion.</td>
+  </tr>
+  <tr>
+  <td>300+</td>
+  <td>Hazardous</td>
+  <td>Health alert: everyone may experience more serious health effects</td>
+  <td>Everyone should avoid all outdoor exertion</td>
+  </tr>
+  </table></p>
+  
+  "
+    )
+  }) 
+  
+  output$explain_text_5 = renderUI({
+    HTML(
+    "<p><b>Variables That Affect Sunrise And Sunset Times Where You Live:</b></p>
+     <p><b>Longitude</b></p>
+     <p>Longitude lines are the imaginary lines that run vertically around the globe, intersecting at the North and South Poles. Longitude is a way of talking about how far east or west a location is in relationship to one specific imaginary line, called the Prime Meridian, that runs through the town of Greenwich, England. Because the Earth spins clockwise, the Sun appears to the east of any given location each day. It takes about one hour for the Sun’s light to move 15° longitude. This is why the Sun’s rays reach the East Coast each day before the West Coast.</p>
+     <p><b>Time Zone</b></p>
+     <p>Time zones were created to acknowledge the fact that the Sun is not “up” at the same time everywhere around the globe. Because the Sun’s light moves across the Earth at a rate of 15° longitude per hour, people divided the Earth into 24 roughly equal sections of about 15° each, and assigned a one-hour time difference to each successive zone. This means that, all other things being equal, the Sun rises at roughly the same time no matter which time zone you’re in. Unfortunately, it’s not quite that simple. First of all, the many time zones don’t line up perfectly with the longitude lines, due to political and other complications. In addition, not all of us live right at the easternmost edge of our respective time zones. The further west you live within your time zone, the later your sunrise will be. There is a simple, but somewhat inexact, way to figure this out. For every 70 miles you travel west within your time zone, sunrise will be about four minutes later. This time decreases somewhat the further you move from the Equator, though. That’s because of latitude …</p>
+     <p><b>Latitude</b></p>
+     <p>Latitude lines are imaginary lines that encircle the globe horizontally. Latitude is a way of talking about how far north or south a location is in relationship to the Equator, the imaginary line that runs around the center of the globe. Unlike longitude lines, latitude lines never intersect. Because the Earth’s circumference is smaller near its poles than it is around its center, extreme northern or southern locations experience greater variations in the length of their days than locations closer to the Equator. While equatorial locations get approximately 12 hours of daylight and darkness each day, year-round, areas closer to the North and South Poles can experience several months of constant sunlight or darkness at a stretch. Most North Americans live somewhere between these two regions.</p>
+     <p><b>Altitude</b></p>
+     <p>As if all of these factors weren’t enough, altitude also plays a role. Generally speaking, the higher your location is, the earlier the Sun will rise, and the later it will set, compared to when it would for the same location if it were at sea level. An easy way to determine what effect altitude has is to remember than sunrise will be one minute earlier for every mile of altitude, and that sunset will be later by the same amount.</p>
+      "
+    )
+  }) 
+  
+  output$explain_text_6 = renderUI({
+    HTML(
+      "<p><b>Köppen–Geiger climate classification</b></p>
+      <p>The <b>Köppen climate classification</b> is one of the most widely used climate classification systems. It was first published by German-Russian climatologist Wladimir Köppen (1846–1940) in 1884, with several later modifications by Köppen, notably in 1918 and 1936. Later, German climatologist Rudolf Geiger (1894–1981) introduced some changes to the classification system, which is thus sometimes called the <b>Köppen–Geiger climate classification</b>.</p>
+      <p>The Köppen climate classification divides climates into five main climate groups, with each group being divided based on patterns of seasonal precipitation and temperature. The five main groups are A (tropical), B (arid), C (temperate), D (continental), and E (polar). Each group and subgroup is represented by a letter. All climates are assigned a main group (the first letter). All climates except for those in the E group are assigned a seasonal precipitation subgroup (the second letter). For example, Af indicates a tropical rainforest climate. The system assigns a temperature subgroup for all groups other than those in the A group, indicated by the third letter for climates in B, C, D, and the second letter for climates in E. For example, Cfb indicates an oceanic climate with warm summers as indicated by the ending b. Climates are classified based on specific criteria unique to each climate type.</p>
+      <p>As Köppen designed the system based on his experience as a botanist, his main climate groups are based on the types of vegetation occurring in a given climate classification region. In addition to identifying climates, the system can be used to analyze ecosystem conditions and identify the main types of vegetation within climates. Due to its association with the plant life of a given region, the system is useful in predicting future changes of plant life within that region.</p>
+      <p>The Köppen climate classification system was modified further within the Trewartha climate classification system in 1966 (revised in 1980). The Trewartha system sought to create a more refined middle latitude climate zone, which was one of the criticisms of the Köppen system (the climate group C was too general).</p>
+      
+      "
+    )
+  })
+  
+  output$explain_text_7 = renderUI({
+    HTML(
+      "<p><b>Rain Level</b></p>
+      <ul>
+      <li>Light rain — when the precipitation rate is < 2.5 mm (0.098 in) per hour / < 60.0 mm (2.352 in) per day</li>
+      <li>Moderate rain — when the precipitation rate is between 2.5 mm (0.098 in) – 7.6 mm (0.30 in) or 10 mm (0.39 in) per hour / between 60 mm (2.352 in) – 182.4 mm (7.20 in) or 240 mm (9.36 in) per day </li>
+      <li>Heavy rain — when the precipitation rate is > 7.6 mm (0.30 in) per hour, or between 10 mm (0.39 in) and 50 mm (2.0 in) per hour / > 182.4 mm (7.20 in) per day, or between 240 mm (9.36 in) and 1200 mm (48.0 in) per day </li>
+      <li>Violent rain — when the precipitation rate is > 50 mm (2.0 in) per hour / > 1200 mm (48.0 in) per day </li>
+      </ul>
+       "
+    )
+  })
+  
+  output$reason_text_1 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Because the Earth tilts on its axis, and because the 
+earth is spherical the Sun’s rays strike the Earth at 
+different angles.<ol><li>as a result, different parts of Earth receive 
+different amounts of solar radiation</li></ol></li>
+      <li>The <b style='color:red !important;'>tropics</b> receive the 
+most solar radiation 
+because the sun’
+s rays 
+strike almost directly. 
+Temperatures in the 
+tropics are warm year round.</li>
+      <li>The <b style='color:red !important;'>temperate</b> zones have 
+moderate conditions.</li>
+      <li>The <b style='color:red !important;'>polar</b> zones receive the 
+least radiation because the 
+suns rays strike at a very 
+low angle. Temperatures 
+in polar regions are usually 
+cold.
+</li>
+      </ol>
+      "
+    )
+  })
+  
+  output$reason_text_2 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Elevation is the height above sea level.</li>
+      <li>On average, air temperature drops about 
+6.5\u00b0C for every 1000 m of altitude.</li>
+      <li>The higher the elevation, the colder the climate.</li>
+      </ol>
+      "
+    )
+  })
+  
+  output$reason_text_3 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Climates often differ on either side of a mountain.</li>
+      <li>As air rises over a mountain, it cools. As it cools, 
+it condenses, and releases moisture (rain). This is 
+called the <b style='color:red !important;'>windward</b> side.</li>
+      <li>As the dry air flows over the mountain, it descends 
+and warms, usually producing deserts. 
+This is called the <b style='color:red !important;'>leeward</b> side.</li>
+</ol>
+<p>Deserts	
+such	as	the	
+Atacama	in	
+Chile	are	
+common	
+on	leeward	
+sides	of	
+mountains.</p>
+<p>The	dry	area	is	
+Called	a	rain	shadow	
+and	can	extend	for	
+hundreds	of	km	
+downwind	of	a	
+mountain	range.</p>
+      "
+    )
+  })
+  
+  output$reason_text_4 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Land gains and loses heat much faster than water.</li>
+      <li>The temperature of a large body of water can influence 
+the temperature of the air above it.</li>
+      <li>Based on other factors certain areas closer to large 
+bodies of water may have a relatively small yearly 
+temperature range.<ol><li>example: the California coast vs. the interior of 
+California</li></ol></li>
+<li>Continental interiors have large yearly temperature 
+ranges.</li>
+<li>Dry air gains and loses heat much faster than humid 
+air, so deserts have large daily temperature ranges.</li>
+<li>Ocean currents can warm or cool the air above.</li>
+<li>Ocean currents may be considerably warmer or colder 
+than the normal air temperature for that latitude.</li>
+</ol>
+      "
+    )
+  })
+  
+  output$reason_text_5 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Solar energy and earth’s rotation create motion in the 
+atmosphere called planetary winds.</li>
+      <li>There are three basic wind systems in each hemisphere: 
+Polar Easterlies, Northeast or Southeast Tradewinds and 
+Prevailing Westerlies.</li>
+      <li>These winds blow air masses with distinct regions of 
+origin (ie. formed over land or water, formed at certain 
+latitudes).</li>
+<li>Winds move warm air toward the poles and cool air 
+toward the equator.</li>
+</ol>
+<p>These	belts	shift	
+seasonally	as	the	earth	
+spins	on	it’s	axis	and	
+different	laAtudes	
+receive	direct	sunlight.</p>
+<p>In	the	Northern	
+Hemisphere,	belts	
+shift	northwards	in	the	
+summer,	and	
+southwards	in	the	
+winter.		</p>
+      "
+    )
+  })
+  
+  output$reason_text_6 = renderUI({
+    HTML(
+      "
+      <ol>
+      <li>Vegetation influences how much of the sun’
+s energy 
+is absorbed and how quickly this energy is released, 
+which affects the climate.</li>
+      <li>During <b style='color:red !important;'>transpiration</b>, plants release water vapor 
+from their leaves into the air.</li>
+      <li>Some plants release particles that promote the 
+formation of clouds.</li>
+<li>Large areas of vegetation mimic large bodies of 
+water.</li>
+</ol>
+      "
+    )
+  })
+  
+  output$input_factors_ui <- renderUI({
+    vec_list = list(
+      c("Temperature","Metric"," (unit: \u00b0C)",-20,50,15,25,1),
+      c("Temperature","Imperial"," (unit: \u00b0F)",-4,122,59,77,1),
+      c("Humidity","Metric"," (unit: \u0025)",0,100,30,50,1),
+      c("Humidity","Imperial"," (unit: \u0025)",0,100,30,50,1),
+      c("Wind Speed","Metric"," (unit: kph)",0,80,1,10,1),
+      c("Wind Speed","Imperial"," (unit: mph)",0,50,1,6,1),
+      c("Cloud Cover","Metric"," (unit: \u0025)",0,100,10,20,1),
+      c("Cloud Cover","Imperial"," (unit: \u0025)",0,100,10,20,1),
+      c("Solar Radiation","Metric"," (unit: W/m2)",0,500,200,250,10),
+      c("Solar Radiation","Imperial"," (unit: W/m2)",0,500,200,250,10),
+      c("Snow","Metric"," (unit: cm)",0,150,0,5,1),
+      c("Snow","Imperial"," (unit: inch)",0,60,0,2,1),
+      c("Precipitation","Metric"," (unit: mm)",0,200,0,5,1),
+      c("Precipitation","Imperial"," (unit: inch)",0,10,0,0.5,0.1)
+    )
+    df = data.frame(do.call(rbind, vec_list))
+    colnames(df) = c("factor","unit_sys","unit","min","max","var1","var2","step")
+    
+    lapply(seq(length(input$factors)), function(i){
+    unit = toString(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["unit"])
+    min = as.numeric(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["min"])
+    max = as.numeric(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["max"])
+    var1 = as.numeric(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["var1"])
+    var2 = as.numeric(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["var2"])
+    step = as.numeric(df[df$factor==input$factors[[i]] & df$unit_sys==input$unit_2, ]["step"])
+    column(width=12,
+          sliderInput(inputId = paste0("input_factor_val_", i),label = paste("Choose your prefered ",input$factors[[i]]," range in a day", unit, ":"), min=min, max=max, value=c(var1,var2), step = step)  
+      )
+    })
+  })
+  
+  output$input_self_weights_ui <- renderUI({
+    lapply(seq(length(input$factors)), function(i){
+    column(width=2,
+             numericInput(inputId = paste0("input_self_", i),label = paste("Weight of ", input$factors[[i]], ":"),value = 0)  
+           )
+     })
+  })
+  
+  output$input_AHP_weights_ui <- renderUI({
+  lapply(seq(length(input$factors)), function(j){
+    column(width=2,
+           lapply(seq(length(input$factors)),function(i){
+             if (i > j){selectInput(inputId = paste0("input_AHP_", i, "_", j),
+                          label = paste(input$factors[[i]],"Compared to", input$factors[[j]], ":"),
+                          choices = c("",paste(rep(input$factors[[i]],10), importance_vec, rep(input$factors[[j]],10))))} else {
+                            verbatimTextOutput("")    
+                          }
+             })
+          )
+      })
+  })
+  
+  df_city_ranking = eventReactive(input$button1, {
+    val_1s = c()
+    val_2s = c()
+    weights = c()
+    for (i in 1:length(input$factors)){
+      val_1s = c(val_1s,input[[paste0("input_factor_val_", i)]][1])
+      val_2s = c(val_2s,input[[paste0("input_factor_val_", i)]][2])
+      weights = c(weights,input[[paste0("input_self_", i)]])
+    }
+    df = add_final_score(get_indices_df(input$factors,val_1s,val_2s), weights)
+    df = df[rev(order(df[["Final Score"]])), ]
+    df = cbind(ranking = 1:nrow(df), df)
+    df
+  })
+  
+  observeEvent(input$button1, {
+  output$city_ranking = renderReactable(
+    reactable(df_city_ranking(), searchable = TRUE,defaultPageSize = 10)
+  )
+  })
+  
+  output$weight_text = renderUI({
+    HTML(
+      "
+      <p>
+Weights should sum to 100. 
+      </p>
+      "
+    )
+  })
+  
+  df_21 <- reactive({
+    lower_quantile = input$ranking_range[1]
+    upper_quantile = input$ranking_range[2]
+    lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+    upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+    df_chosen = df_city_ranking()[lower_ranking+1:upper_ranking,c("ranking","City")]
+    merged_df <- merge(df_chosen, df, by.x = "City", by.y = "city_name")
+    merged_df = merged_df[order(merged_df[["ranking"]]), ]
+    merged_df
+  })
+  
+  df_22 <- reactive({
+    lower_quantile = input$ranking_range[1]
+    upper_quantile = input$ranking_range[2]
+    lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+    upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+    df_chosen = df_city_ranking()[lower_ranking+1:upper_ranking,c("ranking","City")]
+    merged_df <- merge(df_chosen, df, by.x = "City", by.y = "city_name")
+    merged_df = merged_df[order(merged_df[["ranking"]]), c("ranking","City","Country","mean_temp..Celsius.","mean_solarradiation..W.m2.",
+                                                           "mean_humidity....","mean_windspeed..kph.","temp_std..Celsius.","mean_temp_range..Celsius.",
+                                                           "mean_abs_temp_diff_1..Celsius.","precip_std..mm.","precip_sum..mm." ,"temp.precip.corr",
+                                                           "humid.radiat.corr", "humid.precip.corr", "temp.radiat.corr","Color.Code")]
+    colnames(merged_df) <- c("Ranking","City","Country/Region","Annual Mean Temp (\u00B0C)","Annual Mean Solarradiation (W/m2)",
+                   "Annual Mean Humidity (\u0025)","Mean Windspeed (kph)","Annual Temp Std (\u00B0C)","Annual Mean Temp Range (\u00B0C)",
+                   "Annual Mean Temp Diff (\u00B0C)","Precip Std (mm)","Precip Sum (mm)" ,"Temp Precip Corr",
+                   "Humid Radiat Corr", "Humid Precip Corr", "Temp Radiat Corr","Color Code")
+    merged_df    
+  })
+  
+  df_23 <- reactive({
+    lower_quantile = input$ranking_range[1]
+    upper_quantile = input$ranking_range[2]
+    lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+    upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+    df_chosen = df_city_ranking()[lower_ranking+1:upper_ranking,c("ranking","City")]
+    merged_df <- merge(df_chosen, df, by.x = "City", by.y = "city_name")
+    merged_df = merged_df[order(merged_df[["ranking"]]),
+                          c("ranking","City","Country","First.Administration","latitude..degree.",
+                            "longitude..degree.","elevation..m.","dist_to_sea..km.","Climate.Names",
+                            "Koppen.climate","Group","Precipitation.Type","Level.of.Heat","Color.Code")]
+    colnames(merged_df) <- c("Ranking","City","Country/Region","First-Level Administrative Division","Latitude (\u00B0)",
+                             "Longitude (\u00B0)","Elevation (m)","Distance to the Sea (km)","Koppen Climate",
+                             "Climate Code","Group","Precipitation Type","Level of Heat","Color Code")
+    merged_df    
+  })
+  
+  output$map_4 <- renderLeaflet({
+    df = df_21()
+    popup = paste0("<strong>City:</strong> ", df$City, "<br>",
+                   "<strong>Country/Region:</strong> ", df$Country, "<br>",
+                   "<strong>Latitude:</strong> ", df$lat, "<br>",
+                   "<strong>Longitude:</strong> ", df$long, "<br>",
+                   "<strong>Elevation (m):</strong> ", df$elevation..m., "<br>",
+                   "<strong>Distance to the Sea (km):</strong> ", df$dist_to_sea..km., "<br>",
+                   "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
+                   "<strong>Climate Code:</strong> ", df$Koppen.climate, "<br>",
+                   "<strong>Annual Mean Temperature (\u00B0C):</strong> ", df$mean_temp..Celsius., "<br>",
+                   "<strong>Annual Precipitation Sum (mm):</strong> ", df$precip_sum..mm., "<br>"
+    )
+    leaflet(data = df) %>%
+      addTiles() %>%
+      addCircleMarkers(lat = as.numeric(df$latitude..degree.), 
+                       lng = as.numeric(df$longitude..degree.),
+                       label = lapply(as.list(popup), HTML),
+                       radius = 6,color = df$Color.Code,
+                       stroke = FALSE, fillOpacity = 0.8
+      )
+  })
+  
+  output$df_22 = renderReactable({
+    color_vec = df_22()[["Color Code"]]
+    reactable(df_22()[,-ncol(df_22())], searchable = TRUE, defaultPageSize = 10, 
+              rowStyle = function(index) {
+                list(background = color_vec[index],
+                     color = contrast_color(color_vec[index])
+                )
+              }
+    )
+  })
+  
+  output$df_23 = renderReactable({
+    color_vec = df_23()[["Color Code"]]
+    reactable(df_23()[,-ncol(df_23())], searchable = TRUE, defaultPageSize = 10, 
+              rowStyle = function(index) {
+                list(background = color_vec[index],
+                     color = contrast_color(color_vec[index])
+                )
+              }
+    )
+  })
+  
 }
+
+
+
+
+

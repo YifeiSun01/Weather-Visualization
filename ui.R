@@ -1,72 +1,4 @@
-library(shiny)
-library(shinythemes)
-library(rgl)
-library(DT)
-library(dplyr)
-library(leaflet)
-library(gt)
-library(scales)
-library(hash)
-library(plotly)
-library(chron)
-library(ggplot2)
-library(viridis)
-library(scales)
-library(tidyverse)
-library(cowplot)
-library(extrafont)
-library(ggforce)
-library(comprehenr)
-library(dplyr)
-library(stringr)
-library(LaplacesDemon)
-library(data.table)
-library(lutz)
-library(lubridate)
-
-options(warn=-1)
-
-weather_files_path = "data/weather data"
-air_files_path = "data/air quality data"
-
-weather_files = list.files(weather_files_path,pattern = "\\.csv$")
-air_files = list.files(air_files_path,pattern = "\\.csv$")
-
-function_1 = function(x) {
-  return (str_to_title(gsub(" *[0-9].*$", "", x)))
-}
-function_2 = function(x) {
-  return (str_to_title(gsub("-.*$", "", x)))
-}
-weather_cities = unlist(lapply(weather_files, function_1))
-air_cities = unlist(lapply(air_files, function_2))
-
-weather_cities_dict = setNames(weather_files, weather_cities)
-air_cities_dict = setNames(air_files, air_cities)
-
-df = read.csv("data/City Climate Data and Koppen Climate Classification.csv")
-df <- df[order(df$Koppen.climate), ]
-climate_list = df$Climate.Names
-climate_name_dict <- setNames(as.list(df$Climate.Names), paste(df$Climate.Names, ", ", df$Koppen.climate))
-df$lat <- ifelse(df$latitude..degree. > 0, 
-                 paste(as.character(df$latitude..degree.), "\u00B0","N"), 
-                 paste(as.character(-df$latitude..degree.), "\u00B0","S"))
-
-df$long <- ifelse(df$longitude..degree. > 0, 
-                  paste(as.character(df$longitude..degree.), "\u00B0","E"), 
-                  paste(as.character(-df$longitude..degree.), "\u00B0","W"))
-color_mapping = hash(as.list(df$Climate.Names),as.list(df$Color.Code))
-viz_cols = c(colnames(df)[6:13],colnames(df)[17:25])
-viz_cols_names = c("Latitude (\u00B0)" ,             "Longitude (\u00B0)"    ,        
-                   "Elevation (m)"      ,            "Distance to the Sea (km)"      ,        
-                   "Annual Mean Temperature (\u00B0C)", "Annual Mean Solar Radiation (W/m2)" ,   
-                   "Mean Humidity (\u0025)"     ,         "Annual Mean Windspeed (kph)"       ,   
-                   "Annual Temperature Standard Deviation (\u00B0C)", "Annual Mean Daily Temperature Range (\u00B0C)"  ,   
-                   "Annual Mean Temperature Difference (\u00B0C)" ,"Annual Precipitation Standard Deviation (mm)"            ,   
-                   "Annual Precipitation Sum (mm)", "Temperature Precipitation Correlation Coefficient"  ,    
-                   "Humidity Solar Radiation Correlation Coefficient" ,  "Humidity Precipitation Correlation Coefficient"         ,    
-                   "Temperature Solar Radiation Correlation Coefficient" )
-viz_cols_mapping = hash(as.list(viz_cols_names),as.list(viz_cols))
+source("functions.R")
 
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
@@ -83,17 +15,51 @@ ui <- fluidPage(
                  selectInput("climate_3", "Filter by Climate:", 
                              choices = c("(All)",names(climate_name_dict)),
                              selected = "(All)"),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 selectInput("climate_group_1", "Select a climate zone to see its distribution map: ", 
+                             choices = c("(All)","A, Tropical","B, Arid","C, Temperate","D, Cold","E, Polar"),
+                             selected = "(All)"),
                ),
                mainPanel(
                  leafletOutput("map_1"),
                  p(),
+                 imageOutput("mapImage"),
                  br(),
-                 DT::dataTableOutput("df_8"),
-                 textOutput("text_5"),
-                 DT::dataTableOutput("df_5")
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                bsCollapse(
+                  id = "collapsible_box_6",open = NULL,
+                  bsCollapsePanel("What is Köppen–Geiger climate classification?",
+                                  htmlOutput("explain_text_6")
+                  )
+                ),
+                tabsetPanel(
+                  tabPanel("Climate Descriptions", 
+                reactableOutput("df_8")),
+                tabPanel("Climates and Cities",
+                reactableOutput("df_5"))
                )
              )
-    ),
+    )),
     tabPanel("Compare Two Cities",
              sidebarLayout(
                sidebarPanel(
@@ -120,36 +86,157 @@ ui <- fluidPage(
                ),
                mainPanel(
                  textOutput("text_2"),
-                 DT::dataTableOutput("df_2"),
+                 reactableOutput("df_2"),
                  br(),
                  textOutput("text_3"),
-                 DT::dataTableOutput("df_3"),
+                 reactableOutput("df_3"),
                  br(),
                  br(),
                  leafletOutput("map_2"),
                  br(),
                  br(),
                  tabsetPanel(
-                   tabPanel("Temperature and Precipitation", 
-                            plotOutput("svg_1_1", width = "900px", height = "900px")),
+                   tabPanel("Temperature, Precipitation, Wind, Humidity, and Solar Radiation", 
+                            plotOutput("svg_1_1", width = "900px", height = "900px"),
+                             bsCollapse(
+                               id = "collapsible_box_1",open = NULL,
+                               bsCollapsePanel("What is Relative Humidity and Feelslike Temperature?",
+                               htmlOutput("explain_text_1")
+                             )
+                           )
+                         ),
+                   tabPanel("Precipitation, Snow", 
+                            plotOutput("svg_6_1", width = "900px", height = "900px"),
+                            bsCollapse(
+                              id = "collapsible_box_21",open = NULL,
+                              bsCollapsePanel("Precipitation Level",
+                                              htmlOutput("explain_text_7")
+                              )
+                            )
+                   ),
+                   tabPanel("Wind", 
+                            plotOutput("svg_7_1", width = "900px", height = "900px"),
+                            reactableOutput("df_10")
+                   ),
+                   tabPanel("Relavtive Humidity", 
+                            plotOutput("svg_8_1", width = "900px", height = "900px"),
+                   ),
+                   tabPanel("Dew Point, Cloud, Pressure, Visibility, and Solar Energy", 
+                            plotOutput("svg_5_1", width = "900px", height = "900px"),
+                            bsCollapse(
+                              id = "collapsible_box_2",open = NULL,
+                              bsCollapsePanel("What is Dew Point?",
+                              htmlOutput("explain_text_2")
+                              )
+                            )
+                          ),
                    tabPanel("Daytime and Nighttime", 
-                            plotOutput("svg_2_1", width = "800px", height = "800px")),
-                   tabPanel("Weather Conditions", 
-                            plotOutput("svg_3_1", width = "800px", height = "800px")),
+                            plotOutput("svg_2_1", width = "800px", height = "800px"),
+                            bsCollapse(
+                              id = "collapsible_box_5",open = NULL,
+                              bsCollapsePanel("What affects sunrise and sunset time?",
+                                              htmlOutput("explain_text_5")
+                              )
+                            )
+                          ),
+                   tabPanel("Weather Conditions and Ultraviolet Index", 
+                            plotOutput("svg_3_1", width = "800px", height = "800px"),
+                            bsCollapse(
+                              id = "collapsible_box_3",open = NULL,
+                              bsCollapsePanel("What is Ultra Violet Index?",
+                                              htmlOutput("explain_text_3")
+                              )
+                            )
+                          ),
                    tabPanel("Air Quality", 
-                            plotOutput("svg_4_1", width = "800px", height = "800px"))
+                            plotOutput("svg_4_1", width = "800px", height = "800px"),
+                            bsCollapse(
+                              id = "collapsible_box_4",open = NULL,
+                              bsCollapsePanel("What is Air Quality Index?",
+                                              htmlOutput("explain_text_4")
+                              )
+                            )
+                          )
                  ),
                  tabsetPanel(
-                   tabPanel("Temperature and Precipitation", 
+                   tabPanel("Temperature, Precipitation, Wind, Humidity, Solar Radiation", 
                             plotOutput("svg_1_2", width = "900px", height = "900px")),
+                   tabPanel("Dew Point, Cloud, Pressure, Visibility, Solar Energy", 
+                            plotOutput("svg_5_2", width = "900px", height = "900px")),
+                   tabPanel("Precipitation, Snow", 
+                            plotOutput("svg_6_2", width = "900px", height = "900px")),
+                   tabPanel("Wind", 
+                            plotOutput("svg_7_2", width = "900px", height = "900px")),
+                   tabPanel("Relavtive Humidity", 
+                            plotOutput("svg_8_2", width = "900px", height = "900px")),
                    tabPanel("Daytime and Nighttime", 
                             plotOutput("svg_2_2", width = "800px", height = "800px")),
-                   tabPanel("Weather Conditions", 
+                   tabPanel("Weather Conditions and Ultraviolet Index", 
                             plotOutput("svg_3_2", width = "800px", height = "800px")),
                    tabPanel("Air Quality",
                             plotOutput("svg_4_2", width = "800px", height = "800px"))
                  ))
              ) 
+    ),
+    tabPanel("Find Your Favorite Cities",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("unit_2", "Choose a unit of measurement:", 
+                             choices = c("Metric","Imperial"),
+                             selected = "Metric"),
+                 selectInput("factors","Choose the factors you would like to consider",
+                             c("Temperature","Humidity","Wind Speed","Cloud Cover","Solar Radiation","Snow","Precipitation"), multiple = TRUE),
+                 conditionalPanel(
+                   condition = "input.factors.length > 0 ",
+                   uiOutput("input_factors_ui")
+                 ),
+                 selectInput("weight_method", "Choose a method to determine weight:", 
+                             choices = c("Self-Defined Weights Vector","AHP (Analytical Hierarchy Process)"),
+                             selected = "Self-Defined Weights Vector")
+                 
+                 
+               ),
+               mainPanel(
+                 tabsetPanel(
+                   tabPanel("Define Weights Vector",
+                 conditionalPanel(
+                   condition = "input.factors.length > 0 && input.weight_method == 'Self-Defined Weights Vector' ",
+                   uiOutput("input_self_weights_ui"),
+                   htmlOutput("weight_text")
+                 ),
+                 conditionalPanel(
+                   condition = "input.factors.length > 0 && input.weight_method == 'AHP (Analytical Hierarchy Process)' ",
+                   uiOutput("input_AHP_weights_ui")
+                 ),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 actionButton("button1", "Submit"),
+                 br(),
+                 br(),
+                 tabsetPanel(
+                   tabPanel("See City Ranking",
+                        reactableOutput("city_ranking")    
+                     )
+                   )
+                 ),
+                 tabPanel("See Your Favorite Cities on the World Map",
+        sliderInput(inputId = "ranking_range",label = "Choose the quantile range of cities you would like to see  (0-most favorite, 100-least favorite)", min=0, max=100, value=c(0,5), step = 1),  
+        leafletOutput("map_4", width = 700, height = 700),  
+        br(),
+        br(),
+        tabsetPanel(
+          tabPanel("General Information",
+                reactableOutput("df_23")), 
+          tabPanel("Climate Details",
+                reactableOutput("df_22"))
+        )
+        
+        )
+                 )
+               )
+             )
     ),
     tabPanel("Explore the Dataset",
              sidebarLayout(
@@ -172,6 +259,27 @@ ui <- fluidPage(
                  selectInput("climate_4", "Filter by Climate:", 
                              choices = c("(All)",names(climate_name_dict)),
                              selected = "(All)"),
+                 selectInput("favorite_1", "Filter by the Quantile Range in the Previous Page:", 
+                             choices = c("No","Yes"),
+                             selected = "No"),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
+                 br(),
                  br(),
                  br(),
                  br(),
@@ -219,7 +327,6 @@ ui <- fluidPage(
                  br(),
                  br(),
                  br(),
-                 br(),
                  selectInput("map_3_feature", "Choose a feature to visualize on the map:", 
                              choices = keys(viz_cols_mapping),
                              selected = "Annual Mean Temperature (\u00B0C)"),
@@ -229,6 +336,9 @@ ui <- fluidPage(
                  selectInput("climate_6", "Filter by Climate:", 
                              choices = c("(All)",names(climate_name_dict)),
                              selected = "(All)"),
+                 selectInput("favorite_2", "Filter by the Quantile Range in the Previous Page:", 
+                             choices = c("No","Yes"),
+                             selected = "No"),
                ),
                mainPanel(
                  plotlyOutput("plot_1", width = 700, height = 700),
@@ -236,18 +346,70 @@ ui <- fluidPage(
                  textOutput("regression_text_1"),
                  br(),
                  br(),
+                 h3("What	Causes	Different	Climates?"),
+                 tabsetPanel(
+                   tabPanel("Latitude", 
+                            
+                            bsCollapse(
+                              id = "collapsible_box_10",open = "Latitude",
+                              bsCollapsePanel("Latitude",
+                                              htmlOutput("reason_text_1")
+                              )
+                            )
+                          ),
+                   tabPanel("Elevation", 
+                            
+                            bsCollapse(
+                              id = "collapsible_box_11",open = "Elevation",
+                              bsCollapsePanel("Elevation",
+                                              htmlOutput("reason_text_2")
+                              )
+                            )
+                          ),
+                   tabPanel("Topography", 
+                            bsCollapse(
+                              id = "collapsible_box_12",open = "Topography",
+                              bsCollapsePanel("Topography",
+                                              htmlOutput("reason_text_3")
+                              )
+                            )
+                          ),
+                   tabPanel("Water	Bodies", 
+                            bsCollapse(
+                              id = "collapsible_box_13",open = "Water	Bodies",
+                              bsCollapsePanel("Water	Bodies",
+                                              htmlOutput("reason_text_4")
+                              )
+                            )
+                          ),
+                   tabPanel("Atmospheric	Circulation",
+                            bsCollapse(
+                              id = "collapsible_box_14",open = "Atmospheric	Circulation",
+                              bsCollapsePanel("Atmospheric	Circulation",
+                                              htmlOutput("reason_text_5")
+                              )
+                            )
+                          ),
+                   tabPanel("Vegetation",
+                            bsCollapse(
+                              id = "collapsible_box_15",open = "Vegetation",
+                              bsCollapsePanel("Vegetation",
+                                              htmlOutput("reason_text_6")
+                              )
+                            )
+                   ),
+                 ),
+                 br(),
+                 br(),
                  plotlyOutput("plot_2", width = 700, height = 700),
                  br(),
                  br(),
                  leafletOutput("map_3", width = 700, height = 700)
                ))),
+    
     tabPanel("Contribute to This Project",
-             sidebarLayout(
-               sidebarPanel(
-               ),
-               mainPanel(
-                 htmlOutput("contribution_text")
-               )
+             mainPanel(
+               htmlOutput("contribution_text")
              )
     )
   )
