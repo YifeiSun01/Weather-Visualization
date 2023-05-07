@@ -499,6 +499,19 @@ server <- function(input, output) {
         opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
       }
     }
+    
+    if (input$favorite_1 == "No"){
+      
+    } else {
+      lower_quantile = input$ranking_range[1]
+      upper_quantile = input$ranking_range[2]
+      lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+      upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+      chosen_city_list = as.vector(df_city_ranking()[lower_ranking+1:upper_ranking,c("City")])
+      size_vec = ifelse(df$city_name %in% chosen_city_list,size_vec,normal_size)
+      opacity_vec = ifelse(df$city_name %in% chosen_city_list,opacity_vec,normal_opacity)
+    }
+      
     p = ggplot(data = df)+
       geom_point(aes(x,
                      y,
@@ -548,6 +561,19 @@ server <- function(input, output) {
         opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_opacity,normal_opacity)
       }
     }
+    
+    if (input$favorite_2 == "No"){
+      
+    } else {
+      lower_quantile = input$ranking_range[1]
+      upper_quantile = input$ranking_range[2]
+      lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+      upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+      chosen_city_list = as.vector(df_city_ranking()[lower_ranking+1:upper_ranking,c("City")])
+      size_vec = ifelse(df$city_name %in% chosen_city_list,size_vec,normal_size)
+      opacity_vec = ifelse(df$city_name %in% chosen_city_list,opacity_vec,normal_opacity)
+    }
+    
     plot_ly(df, x = ~x, y = ~y, z = ~z, 
             text = paste(
               "City: ", df$city_name,
@@ -590,6 +616,20 @@ server <- function(input, output) {
         opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_opacity,normal_opacity)
       }
     }
+    
+    
+    if (input$favorite_3 == "No"){
+      
+    } else {
+      lower_quantile = input$ranking_range[1]
+      upper_quantile = input$ranking_range[2]
+      lower_ranking = round(lower_quantile*nrow(df_city_ranking())/100,0)
+      upper_ranking = round(upper_quantile*nrow(df_city_ranking())/100,0)
+      chosen_city_list = as.vector(df_city_ranking()[lower_ranking+1:upper_ranking,c("City")])
+      size_vec = ifelse(df$city_name %in% chosen_city_list,size_vec,normal_size)
+      opacity_vec = ifelse(df$city_name %in% chosen_city_list,opacity_vec,normal_opacity)
+    }
+    
     popup = paste0("<strong>City:</strong> ", df$city_name, "<br>",
                    "<strong>Country/Region:</strong> ", df$Country, "<br>",
                    "<strong>Latitude:</strong> ", df$lat, "<br>",
@@ -974,7 +1014,7 @@ water.</li>
   output$input_self_weights_ui <- renderUI({
     lapply(seq(length(input$factors)), function(i){
     column(width=2,
-             numericInput(inputId = paste0("input_self_", i),label = paste("Weight of ", input$factors[[i]], ":"),value = 0)  
+             numericInput(inputId = paste0("input_self_", i),label = paste("Weight of ", input$factors[[i]], "(\u0025) :"),value = 0)  
            )
      })
   })
@@ -983,9 +1023,12 @@ water.</li>
   lapply(seq(length(input$factors)), function(j){
     column(width=2,
            lapply(seq(length(input$factors)),function(i){
-             if (i > j){selectInput(inputId = paste0("input_AHP_", i, "_", j),
+             if (i < j){selectInput(inputId = paste0("input_AHP_", i, "_", j),
                           label = paste(input$factors[[i]],"Compared to", input$factors[[j]], ":"),
-                          choices = c("",paste(rep(input$factors[[i]],10), importance_vec, rep(input$factors[[j]],10))))} else {
+                          choices = c("(None)",
+                                      paste(rep(input$factors[[i]],10), importance_vec, rep(input$factors[[j]],10)),
+                                      paste(rep(input$factors[[j]],9), importance_vec[2:10], rep(input$factors[[i]],9))))
+               } else {
                             verbatimTextOutput("")    
                           }
              })
@@ -994,6 +1037,7 @@ water.</li>
   })
   
   df_city_ranking = eventReactive(input$button1, {
+    if (input$weight_method == "Self-Defined Weights Vector"){
     val_1s = c()
     val_2s = c()
     weights = c()
@@ -1001,6 +1045,68 @@ water.</li>
       val_1s = c(val_1s,input[[paste0("input_factor_val_", i)]][1])
       val_2s = c(val_2s,input[[paste0("input_factor_val_", i)]][2])
       weights = c(weights,input[[paste0("input_self_", i)]])
+      }
+    } else {
+      val_1s = c()
+      val_2s = c()
+      AHP_calc_matrix = diag(length(input$factors))
+      for (i in 1:length(input$factors)){
+        val_1s = c(val_1s,input[[paste0("input_factor_val_", i)]][1])
+        val_2s = c(val_2s,input[[paste0("input_factor_val_", i)]][2])
+      }
+      for (i in 1:length(input$factors)){
+        for (j in 1:length(input$factors)){
+          if (i<j){
+            if (input[[paste0("input_AHP_", i, "_", j)]]!="(None)") {
+              match_found <- FALSE
+              for (word in as.vector(names(importance_dict))) {
+                if (grepl(word, input[[paste0("input_AHP_", i, "_", j)]])) {
+                  match_found <- TRUE
+                  break
+                }
+              }
+              factor1 = input$factors[i]
+              factor2 = input$factors[j]
+              factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", i, "_", j)]])[1]
+              factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", i, "_", j)]])[1]
+              val = importance_dict[[word]]
+              if  (factor1_pos < factor2_pos){
+                AHP_calc_matrix[i,j] = val
+              } else {
+                AHP_calc_matrix[i,j] = 1/val
+              }
+            }
+          } else if (i>j) {
+            if (input[[paste0("input_AHP_", j, "_", i)]]!="(None)") {
+              match_found <- FALSE
+              for (word in as.vector(names(importance_dict))) {
+                if (grepl(word, input[[paste0("input_AHP_", j, "_", i)]])) {
+                  match_found <- TRUE
+                  break
+                }
+              }
+              factor1 = input$factors[j]
+              factor2 = input$factors[i]
+              factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", j, "_", i)]])[1]
+              factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", j, "_", i)]])[1]
+              val = importance_dict[[word]]
+              if  (factor1_pos < factor2_pos){
+                AHP_calc_matrix[i,j] = 1/val
+              } else {
+                AHP_calc_matrix[i,j] = val
+              }
+            }
+          }
+        }
+      }
+      
+      max_eign_vec = tryCatch({
+        eigen(AHP_calc_matrix)$vectors[, which.max(eigen(AHP_calc_matrix)$values)]
+      }, error = function(e) {
+        rep(1,length(input$factors))
+      })
+      max_eign_vec = abs(max_eign_vec)
+      weights = round(max_eign_vec/sum(max_eign_vec)*100,3)
     }
     df = add_final_score(get_indices_df(input$factors,val_1s,val_2s), weights)
     df = df[rev(order(df[["Final Score"]])), ]
@@ -1014,11 +1120,214 @@ water.</li>
   )
   })
   
-  output$weight_text = renderUI({
+  output$AHP_matrix = renderReactable({
+    AHP_show_matrix = diag(length(input$factors))
+    for (i in 1:length(input$factors)){
+      for (j in 1:length(input$factors)){
+        if (i<j){
+          if (input[[paste0("input_AHP_", i, "_", j)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", i, "_", j)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[i]
+            factor2 = input$factors[j]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_show_matrix[i,j] = as.character(val)
+            } else {
+              AHP_show_matrix[i,j] = paste("1/",as.character(val),sep="")
+            }
+          }
+        } else if (i>j) {
+          if (input[[paste0("input_AHP_", j, "_", i)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", j, "_", i)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[j]
+            factor2 = input$factors[i]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_show_matrix[i,j] = paste("1/",as.character(val),sep="")
+            } else {
+              AHP_show_matrix[i,j] = as.character(val)
+            }
+          }
+        }
+      }
+    }
+    AHP_show_matrix_df = data.frame(AHP_show_matrix)
+    colnames(AHP_show_matrix_df) = input$factors
+    rownames(AHP_show_matrix_df) = input$factors
+    reactable(AHP_show_matrix_df)
+  })
+  
+  output$test_df = renderReactable({
+    AHP_calc_matrix = diag(length(input$factors))
+    for (i in 1:length(input$factors)){
+      for (j in 1:length(input$factors)){
+        if (i<j){
+          if (input[[paste0("input_AHP_", i, "_", j)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", i, "_", j)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[i]
+            factor2 = input$factors[j]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_calc_matrix[i,j] = val
+            } else {
+              AHP_calc_matrix[i,j] = 1/val
+            }
+          }
+        } else if (i>j) {
+          if (input[[paste0("input_AHP_", j, "_", i)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", j, "_", i)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[j]
+            factor2 = input$factors[i]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_calc_matrix[i,j] = 1/val
+            } else {
+              AHP_calc_matrix[i,j] = val
+            }
+          }
+        }
+      }
+    }
+    
+    max_eign_vec = tryCatch({
+      max_eigenval = max(abs(eigen(AHP_calc_matrix)$values))
+    }, error = function(e) {
+      rep(1,length(input$factors))
+    })
+    RI_vector = c(0,0,0.58,0.9,1.12,1.24,1.32,1.41,1.45,1.49,1.51)
+    if (length(input$factors)<3){
+      CI = " "
+      RI = " "
+      CR = " "
+      pass = "Consistency test does not apply."
+    } else {
+    CI = (max_eigenval-length(input$factors))/(length(input$factors)-1)
+    RI = RI_vector[length(input$factors)]
+    CR = CI/RI
+    if (CR < 0.1) {
+      pass = "Pass the consistency test. Proceed to the next step."
+    } else {
+      pass = "Do not pass the consistency test. Please revise the AHP matrix."
+    }
+    }
+    test_df = data.frame(
+      "CI"=c(CI),
+      "RI"=c(RI),
+      "CR"=c(CR),
+      "pass"=c(pass)
+    )
+    colnames(test_df)=c("Consistency Index","Random Index","Consistency Radio"," ")
+    reactable(test_df)
+  })
+  
+  output$AHP_weights = renderReactable({
+    AHP_calc_matrix = diag(length(input$factors))
+    for (i in 1:length(input$factors)){
+      for (j in 1:length(input$factors)){
+        if (i<j){
+          if (input[[paste0("input_AHP_", i, "_", j)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", i, "_", j)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[i]
+            factor2 = input$factors[j]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", i, "_", j)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_calc_matrix[i,j] = val
+            } else {
+              AHP_calc_matrix[i,j] = 1/val
+            }
+          }
+        } else if (i>j) {
+          if (input[[paste0("input_AHP_", j, "_", i)]]!="(None)") {
+            match_found <- FALSE
+            for (word in as.vector(names(importance_dict))) {
+              if (grepl(word, input[[paste0("input_AHP_", j, "_", i)]])) {
+                match_found <- TRUE
+                break
+              }
+            }
+            factor1 = input$factors[j]
+            factor2 = input$factors[i]
+            factor1_pos = regexpr(factor1, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            factor2_pos = regexpr(factor2, input[[paste0("input_AHP_", j, "_", i)]])[1]
+            val = importance_dict[[word]]
+            if  (factor1_pos < factor2_pos){
+              AHP_calc_matrix[i,j] = 1/val
+            } else {
+              AHP_calc_matrix[i,j] = val
+            }
+          }
+        }
+      }
+    }
+    
+    max_eign_vec = tryCatch({
+      eigen(AHP_calc_matrix)$vectors[, which.max(eigen(AHP_calc_matrix)$values)]
+      }, error = function(e) {
+        rep(1,length(input$factors))
+      })
+    max_eign_vec = abs(max_eign_vec)
+    normalized_max_eign_vec = round(max_eign_vec/sum(max_eign_vec)*100,3)
+    weight_df = as.data.frame(t(normalized_max_eign_vec))
+    colnames(weight_df) = paste(input$factors,rep(" (\u0025)",length(input$factors)))
+    rownames(weight_df) = c("Weight")
+    reactable(weight_df)
+  })
+  
+  output$self_weight_text = renderUI({
     HTML(
       "
       <p>
 Weights should sum to 100. 
+      </p>
+      "
+    )
+  })
+  
+  output$AHP_weight_text = renderUI({
+    HTML(
+      "
+      <p>
+The AHP matrix should be close to a rank-one matrix, meaning the all rows and all columns should be proportional.
       </p>
       "
     )
@@ -1061,8 +1370,8 @@ Weights should sum to 100.
     df_chosen = df_city_ranking()[lower_ranking+1:upper_ranking,c("ranking","City")]
     merged_df <- merge(df_chosen, df, by.x = "City", by.y = "city_name")
     merged_df = merged_df[order(merged_df[["ranking"]]),
-                          c("ranking","City","Country","First.Administration","latitude..degree.",
-                            "longitude..degree.","elevation..m.","dist_to_sea..km.","Climate.Names",
+                          c("ranking","City","Country","First.Administration","lat",
+                            "long","elevation..m.","dist_to_sea..km.","Climate.Names",
                             "Koppen.climate","Group","Precipitation.Type","Level.of.Heat","Color.Code")]
     colnames(merged_df) <- c("Ranking","City","Country/Region","First-Level Administrative Division","Latitude (\u00B0)",
                              "Longitude (\u00B0)","Elevation (m)","Distance to the Sea (km)","Koppen Climate",

@@ -96,6 +96,10 @@ importance_vec = c(" is equally important as ",
                    " is substantially more important than ",
                    " is extremely more important than ")
 
+importance_dict = setNames(as.list(c(1,2,3,4,5,6,7,8,9,10)), 
+                           as.list(c("equally", "slightly","somewhat","moderately","fairly",
+                   "strongly","considerably","significantly","substantially","extremely")))
+
 plot_weather_precipitation_return = function(filname, unit){
   df = read.csv(filname)
   df$datetime=as.Date(df$datetime, origin = "2022-01-01")
