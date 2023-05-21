@@ -222,6 +222,44 @@ server <- function(input, output) {
     "Weather Statistics:"
   })
   
+  output$page_1_sidebarUI <- renderUI({
+    currentTab <- input$page_1_tabs
+    if (currentTab == "430 Cities") {
+      mainPanel(
+        selectInput("country_2", "Filter by Country or Region:", 
+                    choices = c("(All)",sort(unique(df$Country))),
+                    selected = "(All)"),
+        selectInput("climate_3", "Filter by Climate:", 
+                    choices = c("(All)",names(climate_name_dict)),
+                    selected = "(All)"),
+      )
+    } else if (currentTab == "780 Cities") {
+      mainPanel(
+        selectInput("country_2", "Filter by Country or Region:", 
+                    choices = c("(All)",sort(unique(df_780$Country))),
+                    selected = "(All)"),
+        selectInput("climate_3", "Filter by Climate:", 
+                    choices = c("(All)",names(climate_name_dict)),
+                    selected = "(All)"),
+      )
+    } else if (currentTab == "44351 Cities") {
+      mainPanel(
+        selectInput("continent_1", "Filter by Continent:", 
+                    choices = c("(All)",sort(unique(df_44351$Continent))),
+                    selected = "Europe"),
+        selectInput("region_1", "Filter by Region:", 
+                    choices = c("(All)",region_list),
+                    selected = "(All)"),
+        selectInput("country_2", "Filter by Country or Region:", 
+                    choices = c("(All)",sort(unique(df_44351$Country))),
+                    selected = "(All)"),
+        selectInput("climate_3", "Filter by Climate:", 
+                    choices = c("(All)",names(climate_name_dict)),
+                    selected = "(All)"),
+      )
+    }
+  })
+  
   df_7 <- reactive({
     if (input$country_2 == "(All)"){
     } else {
@@ -232,6 +270,38 @@ server <- function(input, output) {
       df = df[df$Climate.Names==climate_name_dict[input$climate_3], ]
     }
     df
+  })
+  
+  df_7_780 <- reactive({
+    if (input$country_2 == "(All)"){
+    } else {
+      df_780 = df_780[df_780$Country == input$country_2, ]
+    }
+    if (input$climate_3 == "(All)"){
+    } else {
+      df_780 = df_780[df_780$Climate.Names==climate_name_dict[input$climate_3], ]
+    }
+    df_780
+  })
+  
+  df_7_44351 <- reactive({
+    if (input$continent_1 == "(All)"){
+    } else {
+      df_44351 = df_44351[df_44351$Continent == input$continent_1, ]
+    }
+    if (input$region_1 == "(All)"){
+    } else {
+      df_44351 = df_44351[grepl(input$region_1, df_44351$Region), ]
+    }
+    if (input$country_2 == "(All)"){
+    } else {
+      df_44351 = df_44351[df_44351$Country == input$country_2, ]
+    }
+    if (input$climate_3 == "(All)"){
+    } else {
+      df_44351 = df_44351[df_44351$Climate.Names==climate_name_dict[input$climate_3], ]
+    }
+    df_44351
   })
   
   output$map_1 <- renderLeaflet({
@@ -257,6 +327,125 @@ server <- function(input, output) {
       )
   })
   
+  output$map_1_780 <- renderLeaflet({
+    df = df_7_780()
+    popup = paste0("<strong>City:</strong> ", df$city_name, "<br>",
+                   "<strong>Country/Region:</strong> ", df$Country, "<br>",
+                   "<strong>Latitude:</strong> ", df$lat, "<br>",
+                   "<strong>Longitude:</strong> ", df$long, "<br>",
+                   "<strong>Elevation (m):</strong> ", df$elevation..m., "<br>",
+                   "<strong>Distance to the Sea (km):</strong> ", df$dist_to_sea..km., "<br>",
+                   "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
+                   "<strong>Climate Code:</strong> ", df$Koppen.climate, "<br>"
+    )
+    leaflet(data = df) %>%
+      addTiles() %>%
+      addCircleMarkers(lat = as.numeric(df$latitude..degree.), 
+                       lng = as.numeric(df$longitude..degree.),
+                       label = lapply(as.list(popup), HTML),
+                       radius = 4,color = ~Color.Code,
+                       stroke = FALSE, fillOpacity = 0.8
+      )
+  })
+
+  output$map_1_44351 <- renderLeaflet({
+    df = df_7_44351()
+    popup = paste0("<strong>City:</strong> ", df$city_ascii, "<br>",
+                   "<strong>Country/Region:</strong> ", df$Country, "<br>",
+                   "<strong>First-Level Administration:</strong> ", df$admin_name, "<br>",
+                   "<strong>Region:</strong> ", df$Region, "<br>",
+                   "<strong>Continent:</strong> ", df$Continent, "<br>",
+                   "<strong>Latitude:</strong> ", df$lat, "<br>",
+                   "<strong>Longitude:</strong> ", df$long, "<br>",
+                   "<strong>Population:</strong> ", df$population, "<br>",
+                   "<strong>Koppen Climate:</strong> ", df$Climate.Names, "<br>",
+                   "<strong>Climate Code:</strong> ", df$Koppen.Climate, "<br>"
+    )
+    leaflet(data = df) %>%
+      addTiles() %>%
+      addCircleMarkers(lat = as.numeric(df$latitude), 
+                       lng = as.numeric(df$longitude),
+                       label = lapply(as.list(popup), HTML),
+                       radius = as.numeric(df$scaled.size)/3,color = ~Color.Code,
+                       stroke = FALSE, fillOpacity = 0.8
+      )
+  }) 
+  
+  output$df_101 = renderReactable({
+    df = df_7_44351()
+    df = df[df[["population"]]>1,]
+    df <- df[complete.cases(df), ]
+    result <- df %>% 
+      group_by(Koppen.Climate) %>% 
+      summarize(Population = sum(population))
+    total_population = sum(result[["Population"]])
+    result = merge(result, unique(df[,c("Koppen.Climate","Climate.Names")]), by = "Koppen.Climate")
+    result = result[,c("Koppen.Climate","Climate.Names","Population")]
+    new_row = c("All Climates","All Climates",total_population)
+    result = rbind(new_row, result)
+    result[["Percentage"]] = round((as.numeric(result[["Population"]])/total_population)*100,3)
+    colnames(result) = c("Climate Code","Climate Name","Population", "Percentage")
+    reactable(result , searchable = TRUE,defaultPageSize = 20,
+              columns = list(
+                "Climate Code" = colDef(width = 120),
+                "Climate Name" = colDef(width = 500),
+                "Population" = colDef(width = 140),
+                "Percentage" = colDef(width = 140)
+              ),
+              rowStyle = function(index) {
+                list(background = if (is.null(climate_color_dict[[result$"Climate Code"[index]]])){
+                  "#FFFFFF"
+                } else {
+                  climate_color_dict[[result$"Climate Code"[index]]]
+                },
+                color = contrast_color(if (is.null(climate_color_dict[[result$"Climate Code"[index]]])){
+                  "#FFFFFF"
+                } else {
+                  climate_color_dict[[result$"Climate Code"[index]]]
+                })
+                )
+              }
+    )
+  })
+  
+  output$df_102 = renderReactable({
+    df = df_7_44351()
+    df = df[df[["population"]]>1,]
+    df = df[rev(order(df$population)), ]
+    if (is.na(df[1,2])){df = df[-1, ]} else {}
+    df = df[1:min(nrow(df), 100),c("city_ascii","Country","admin_name","latitude","longitude","population","Climate.Names","Koppen.Climate")]
+    colnames(df) = c("City","Country","First Level Administrative Region","Latitude","Longitude", "Population","Climate Name","Climate Code")
+    df[["Ranking"]] = 1:nrow(df)
+    df = df[,c("Ranking","City","Country","First Level Administrative Region","Latitude","Longitude", "Population","Climate Name","Climate Code")]
+    rownames(df) <- NULL
+    reactable(df , searchable = TRUE,defaultPageSize = 10,
+              columns = list(
+                "Ranking" = colDef(width = 90),
+                "City" = colDef(width = 120),
+                "Country" = colDef(width = 100),
+                "First Level Administrative Region" = colDef(width = 140),
+                "Latitude" = colDef(width = 100),
+                "Longitude" = colDef(width = 100),
+                "Population" = colDef(width = 100),
+                "Climate Name" = colDef(width = 400),
+                "Climate Code" = colDef(width = 100)
+              ),
+                 rowStyle = function(index) {
+                   list(background = if (is.null(climate_color_dict[[df$"Climate Code"[index]]])){
+                      "#FFFFFF"
+                   } else {
+                     climate_color_dict[[df$"Climate Code"[index]]]
+                   },
+                   color = contrast_color(if (is.null(climate_color_dict[[df$"Climate Code"[index]]])){
+                      "#FFFFFF"
+                        } else {
+                      climate_color_dict[[df$"Climate Code"[index]]]
+                     })
+                     )
+                   }
+    )
+  })
+
   df_5 <- reactive({
     if (input$country_2 == "(All)"){
     } else {
@@ -421,25 +610,19 @@ server <- function(input, output) {
     if (input$plot_1_x_transform == "Linear"){
       df$x = as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]])
     } else if (input$plot_1_x_transform == "Absolute") {
-      # df[[viz_cols_mapping[[input$plot_1_x_axis]]]] 
       df$x = abs(as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]]))
     } else if (input$plot_1_x_transform == "Cosine") {
-      # df[[viz_cols_mapping[[input$plot_1_x_axis]]]] 
       df$x = cos(as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]])/360*2*3.1415926)
     } else {
-      # df[[viz_cols_mapping[[input$plot_1_x_axis]]]] 
       df$x = ifelse(as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]])>0,log(as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]])),-log(-as.numeric(df[[viz_cols_mapping[[input$plot_1_x_axis]]]]))) 
     }
     if (input$plot_1_y_transform == "Linear"){
       df$y = as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]])
     } else if (input$plot_1_y_transform == "Absolute") {
-      # df[[viz_cols_mapping[[input$plot_1_y_axis]]]] 
       df$y = abs(as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]]))
     } else if (input$plot_1_y_transform == "Cosine") {
-      # df[[viz_cols_mapping[[input$plot_1_y_axis]]]] 
       df$y = cos(as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]])/360*2*3.1415926)
     } else {
-      # df[[viz_cols_mapping[[input$plot_1_y_axis]]]] 
       df$y = ifelse(as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]])>0,log(as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]])),-log(-as.numeric(df[[viz_cols_mapping[[input$plot_1_y_axis]]]]))) 
     }
     df
@@ -484,21 +667,71 @@ server <- function(input, output) {
     stress_opacity=1
     original_size=2
     original_opacity=0.8
-    if (input$country_3 == "(All)" & input$climate_4 == "(All)") {
+    
+    if (input$continent_2 == "(All)"){
+      size_vec_continent = rep(TRUE, length(df$city_name))
+      opacity_vec_continent = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_continent = df$Continent==input$continent_2
+      opacity_vec_continent = df$Continent==input$continent_2
+    }
+    
+    if (input$region_2 == "(All)"){
+      size_vec_region = rep(TRUE, length(df$city_name))
+      opacity_vec_region = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_region = grepl(input$region_2,df$Region)
+      opacity_vec_region = grepl(input$region_2,df$Region)
+    }
+    
+    if (input$country_3 == "(All)"){
+      size_vec_country = rep(TRUE, length(df$city_name))
+      opacity_vec_country = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_country = df$Country==input$country_3
+      opacity_vec_country = df$Country==input$country_3
+    }
+    
+    if (input$climate_4 == "(All)"){
+      size_vec_climate = rep(TRUE, length(df$city_name))
+      opacity_vec_climate = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_climate = df$Climate.Names==climate_name_dict[input$climate_4]
+      opacity_vec_climate = df$Climate.Names==climate_name_dict[input$climate_4]
+    }
+    
+    size_vec_bool = size_vec_continent & size_vec_region & size_vec_country & size_vec_climate
+    opacity_vec_bool = opacity_vec_continent & opacity_vec_region & opacity_vec_country & opacity_vec_climate
+    
+    # size_vec = ifelse(size_vec_bool,stress_size,normal_size)
+    # opacity_vec = ifelse(opacity_vec_bool,stress_opacity,normal_opacity)
+     
+    if (length(size_vec_bool) > 1 && all(size_vec_bool)){
       size_vec = rep(original_size,length(df$city_name))
+    } else {
+      size_vec = ifelse(size_vec_bool,stress_size,normal_size)
+    }
+    if (length(opacity_vec_bool) > 1 && all(opacity_vec_bool)){
       opacity_vec = rep(original_opacity,length(df$city_name))
     } else {
-      if (input$country_3 != "(All)" & input$climate_4 == "(All)") {
-        size_vec = ifelse(df$Country==input$country_3,stress_size,normal_size) 
-        opacity_vec = ifelse(df$Country==input$country_3,stress_opacity,normal_opacity) 
-      } else if (input$country_3 == "(All)" & input$climate_4 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_opacity,normal_opacity) 
-      } else if (input$country_3 != "(All)" & input$climate_4 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
-      }
+      opacity_vec = ifelse(opacity_vec_bool,stress_opacity,normal_opacity)
     }
+    
+    # if (input$country_3 == "(All)" & input$climate_4 == "(All)") {
+    #   size_vec = rep(original_size,length(df$city_name))
+    #   opacity_vec = rep(original_opacity,length(df$city_name))
+    # } else {
+    #   if (input$country_3 != "(All)" & input$climate_4 == "(All)") {
+    #     size_vec = ifelse(df$Country==input$country_3,stress_size,normal_size) 
+    #     opacity_vec = ifelse(df$Country==input$country_3,stress_opacity,normal_opacity) 
+    #   } else if (input$country_3 == "(All)" & input$climate_4 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4],stress_opacity,normal_opacity) 
+    #   } else if (input$country_3 != "(All)" & input$climate_4 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_4] & df$Country==input$country_3,stress_opacity,normal_opacity)
+    #   }
+    # }
     
     if (input$favorite_1 == "No"){
       
@@ -546,21 +779,71 @@ server <- function(input, output) {
     stress_opacity=1
     original_size=20
     original_opacity=0.9
-    if (input$country_4 == "(All)" & input$climate_5 == "(All)") {
-      size_vec = rep(original_size,length(df$city_name))
-      opacity_vec = rep(original_opacity,length(df$city_name))
+    
+    if (input$continent_3 == "(All)"){
+      size_vec_continent = rep(TRUE, length(df$city_name))
+      opacity_vec_continent = rep(TRUE,length(df$city_name))
     } else {
-      if (input$country_4 != "(All)" & input$climate_5 == "(All)") {
-        size_vec = ifelse(df$Country==input$country_4,stress_size,normal_size) 
-        opacity_vec = ifelse(df$Country==input$country_4,stress_opacity,normal_opacity) 
-      } else if (input$country_4 == "(All)" & input$climate_5 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_opacity,normal_opacity) 
-      } else if (input$country_4 != "(All)" & input$climate_5 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_opacity,normal_opacity)
-      }
+      size_vec_continent = df$Continent==input$continent_3
+      opacity_vec_continent = df$Continent==input$continent_3
     }
+    
+    if (input$region_3 == "(All)"){
+      size_vec_region = rep(TRUE, length(df$city_name))
+      opacity_vec_region = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_region = grepl(input$region_3,df$Region)
+      opacity_vec_region = grepl(input$region_3,df$Region)
+    }
+    
+    if (input$country_4 == "(All)"){
+      size_vec_country = rep(TRUE, length(df$city_name))
+      opacity_vec_country = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_country = df$Country==input$country_4
+      opacity_vec_country = df$Country==input$country_4
+    }
+    
+    if (input$climate_5 == "(All)"){
+      size_vec_climate = rep(TRUE, length(df$city_name))
+      opacity_vec_climate = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_climate = df$Climate.Names==climate_name_dict[input$climate_5]
+      opacity_vec_climate = df$Climate.Names==climate_name_dict[input$climate_5]
+    }
+    
+    size_vec_bool = size_vec_continent & size_vec_region & size_vec_country & size_vec_climate
+    opacity_vec_bool = opacity_vec_continent & opacity_vec_region & opacity_vec_country & opacity_vec_climate
+    
+    # size_vec = ifelse(size_vec_bool,stress_size,normal_size)
+    # opacity_vec = ifelse(opacity_vec_bool,stress_opacity,normal_opacity)
+    
+    if (length(size_vec_bool) > 1 && all(size_vec_bool)){
+       size_vec = rep(original_size,length(df$city_name))
+    } else {
+       size_vec = ifelse(size_vec_bool,stress_size,normal_size)
+    }
+    if (length(opacity_vec_bool) > 1 && all(opacity_vec_bool)){
+       opacity_vec = rep(original_opacity,length(df$city_name))
+    } else {
+       opacity_vec = ifelse(opacity_vec_bool,stress_opacity,normal_opacity)
+    }
+    
+    # if (input$country_4 == "(All)" & input$climate_5 == "(All)") {
+    #   size_vec = rep(original_size,length(df$city_name))
+    #   opacity_vec = rep(original_opacity,length(df$city_name))
+    # } else {
+    #   if (input$country_4 != "(All)" & input$climate_5 == "(All)") {
+    #     size_vec = ifelse(df$Country==input$country_4,stress_size,normal_size) 
+    #     opacity_vec = ifelse(df$Country==input$country_4,stress_opacity,normal_opacity) 
+    #   } else if (input$country_4 == "(All)" & input$climate_5 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5],stress_opacity,normal_opacity) 
+    #   } else if (input$country_4 != "(All)" & input$climate_5 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_5] & df$Country==input$country_4,stress_opacity,normal_opacity)
+    #   }
+    # }
     
     if (input$favorite_2 == "No"){
       
@@ -601,22 +884,68 @@ server <- function(input, output) {
     stress_opacity=1
     original_size=10
     original_opacity=0.8
-    if (input$country_5 == "(All)" & input$climate_6 == "(All)") {
-      size_vec = rep(original_size,length(df$city_name))
-      opacity_vec = rep(original_opacity,length(df$city_name))
+    
+    if (input$continent_4 == "(All)"){
+      size_vec_continent = rep(TRUE, length(df$city_name))
+      opacity_vec_continent = rep(TRUE,length(df$city_name))
     } else {
-      if (input$country_5 != "(All)" & input$climate_6 == "(All)") {
-        size_vec = ifelse(df$Country==input$country_5,stress_size,normal_size) 
-        opacity_vec = ifelse(df$Country==input$country_5,stress_opacity,normal_opacity) 
-      } else if (input$country_5 == "(All)" & input$climate_6 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_opacity,normal_opacity) 
-      } else if (input$country_5 != "(All)" & input$climate_6 != "(All)"){
-        size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_size,normal_size)
-        opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_opacity,normal_opacity)
-      }
+      size_vec_continent = df$Continent==input$continent_4
+      opacity_vec_continent = df$Continent==input$continent_4
     }
     
+    if (input$region_4 == "(All)"){
+      size_vec_region = rep(TRUE, length(df$city_name))
+      opacity_vec_region = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_region = grepl(input$region_4,df$Region)
+      opacity_vec_region = grepl(input$region_4,df$Region)
+    }
+    
+    if (input$country_5 == "(All)"){
+      size_vec_country = rep(TRUE, length(df$city_name))
+      opacity_vec_country = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_country = df$Country==input$country_5
+      opacity_vec_country = df$Country==input$country_5
+    }
+    
+    if (input$climate_6 == "(All)"){
+      size_vec_climate = rep(TRUE, length(df$city_name))
+      opacity_vec_climate = rep(TRUE,length(df$city_name))
+    } else {
+      size_vec_climate = df$Climate.Names==climate_name_dict[input$climate_6]
+      opacity_vec_climate = df$Climate.Names==climate_name_dict[input$climate_6]
+    }
+    
+    size_vec_bool = size_vec_continent & size_vec_region & size_vec_country & size_vec_climate
+    opacity_vec_bool = opacity_vec_continent & opacity_vec_region & opacity_vec_country & opacity_vec_climate
+    
+    if (length(size_vec_bool) > 1 && all(size_vec_bool)){
+      size_vec = rep(original_size,length(df$city_name))
+    } else {
+      size_vec = ifelse(size_vec_bool,stress_size,normal_size)
+    }
+    if (length(opacity_vec_bool) > 1 && all(opacity_vec_bool)){
+      opacity_vec = rep(original_opacity,length(df$city_name))
+    } else {
+      opacity_vec = ifelse(opacity_vec_bool,stress_opacity,normal_opacity)
+    }
+    
+    # if (input$country_5 == "(All)" & input$climate_6 == "(All)") {
+    #   size_vec = rep(original_size,length(df$city_name))
+    #   opacity_vec = rep(original_opacity,length(df$city_name))
+    # } else {
+    #   if (input$country_5 != "(All)" & input$climate_6 == "(All)") {
+    #     size_vec = ifelse(df$Country==input$country_5,stress_size,normal_size) 
+    #     opacity_vec = ifelse(df$Country==input$country_5,stress_opacity,normal_opacity) 
+    #   } else if (input$country_5 == "(All)" & input$climate_6 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6],stress_opacity,normal_opacity) 
+    #   } else if (input$country_5 != "(All)" & input$climate_6 != "(All)"){
+    #     size_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_size,normal_size)
+    #     opacity_vec = ifelse(df$Climate.Names==climate_name_dict[input$climate_6] & df$Country==input$country_4,stress_opacity,normal_opacity)
+    #   }
+    # }
     
     if (input$favorite_3 == "No"){
       

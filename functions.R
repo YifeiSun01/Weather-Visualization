@@ -45,7 +45,7 @@ air_cities = unlist(lapply(air_files, function_2))
 weather_cities_dict = setNames(weather_files, weather_cities)
 air_cities_dict = setNames(air_files, air_cities)
 
-df = read.csv("data/City Climate Data and Koppen Climate Classification.csv")
+df = read.csv("data/City Climate Data and Koppen Climate Classification 43.csv")
 df <- df[order(df$Koppen.climate), ]
 climate_list = df$Climate.Names
 climate_name_dict <- setNames(as.list(df$Climate.Names), paste(df$Climate.Names, ", ", df$Koppen.climate))
@@ -67,23 +67,81 @@ df$lat <- ifelse(df$latitude..degree. > 0,
 df$long <- ifelse(df$longitude..degree. > 0, 
                   paste(as.character(df$longitude..degree.), "\u00B0","E"), 
                   paste(as.character(-df$longitude..degree.), "\u00B0","W"))
+
+df$clear_day_num = df$clear_day_num+1
+df$cloudy_day_num = df$cloudy_day_num+1
+df$overcast_day_num = df$overcast_day_num+1
+df$rain_day_num = df$rain_day_num+1
+df$snow_day_num = df$snow_day_num+1
+df$mean_snow_depth..cm. = df$mean_snow_depth..cm.+0.001
+
+region_list_2 <- c()
+unique_regions <- unique(df$Region)
+for (i in unique_regions) {
+  split_items <- unlist(strsplit(i, ", +"))
+  for (j in split_items) {
+    if (!(j %in% region_list_2)) {
+      region_list_2 <- c(region_list_2, j)
+    }
+  }
+}
+region_list_2 <- sort(region_list_2)
+
 color_mapping = hash(as.list(df$Climate.Names),as.list(df$Color.Code))
-viz_cols = c(colnames(df)[6:13],colnames(df)[17:25])
-viz_cols_names = c("Latitude (\u00B0)" ,             "Longitude (\u00B0)"    ,        
-                   "Elevation (m)"      ,            "Distance to the Sea (km)"      ,        
-                   "Annual Mean Temperature (\u00B0C)", "Annual Mean Solar Radiation (W/m2)" ,   
-                   "Mean Humidity (\u0025)"     ,         "Annual Mean Windspeed (kph)"       ,   
-                   "Annual Temperature Standard Deviation (\u00B0C)", "Annual Mean Daily Temperature Range (\u00B0C)"  ,   
-                   "Annual Mean Temperature Difference (\u00B0C)" ,"Annual Precipitation Standard Deviation (mm)"            ,   
-                   "Annual Precipitation Sum (mm)", "Temperature Precipitation Correlation Coefficient"  ,    
-                   "Humidity Solar Radiation Correlation Coefficient" ,  "Humidity Precipitation Correlation Coefficient"         ,    
-                   "Temperature Solar Radiation Correlation Coefficient" )
+
+# viz_cols = c(colnames(df)[6:13],colnames(df)[17:25])
+# viz_cols_names = c("Latitude (\u00B0)","Longitude (\u00B0)","Elevation (m)","Distance to the Sea (km)","Annual Mean Temperature (\u00B0C)","Annual Mean Solar Radiation (W/m2)","Annual Mean Humidity (\u0025)","Annual Mean Windspeed (kph)","Annual Temperature Standard Deviation (\u00B0C)","Annual Mean Daily Temperature Range (\u00B0C)","Annual Mean Temperature Difference (\u00B0C)","Annual Precipitation Standard Deviation (mm)","Annual Precipitation Sum (mm)","Temperature Precipitation Correlation Coefficient","Humidity Solar Radiation Correlation Coefficient","Humidity Precipitation Correlation Coefficient","Temperature Solar Radiation Correlation Coefficient")
+
+viz_cols = c(colnames(df)[6:13],colnames(df)[17:36])
+viz_cols_names = c("Latitude (\u00B0)", "Longitude (\u00B0)","Elevation (m)","Distance to the Sea (km)","Annual Mean Temperature (\u00B0C)","Annual Mean Solar Radiation (W/m2)","Annual Mean Humidity (\u0025)","Annual Mean Windspeed (kph)","Annual Temperature Standard Deviation (\u00B0C)","Annual Mean Daily Temperature Range (\u00B0C)","Annual Mean Temperature Difference (\u00B0C)","Annual Precipitation Standard Deviation (mm)","Annual Precipitation Sum (mm)",
+                   "Annual Mean Sea Level Pressure (millibar)",
+                   "Annual Sea Level Pressure Standard Deviation (millibar)","Annual Mean Snow Depth (cm)",
+                   "Annual Mean Cloud Cover (\u0025)","Annual Mean Visibility (km)",
+                   "Number of Clear Days in a Year","Number of Cloudy Days in a Year",
+                   "Number of Overcast Days in a Year","Number of Rainy Days in a Year",
+                   "Number of Snowy Days in a Year","Temperature Precipitation Correlation Coefficient","Humidity Solar Radiation Correlation Coefficient","Humidity Precipitation Correlation Coefficient","Temperature Solar Radiation Correlation Coefficient",
+                   "Sea Level Pressure Temperature Correlation Coefficient")
+
+# viz_cols = c(colnames(df)[6:7])
+# viz_cols_names = c("Latitude (\u00B0)","Longitude (\u00B0)")
+
 viz_cols_mapping = hash(as.list(viz_cols_names),as.list(viz_cols))
 
 df_index = read.csv("data/Climate 789.csv", row.names = 1)
-# df_descriptions = read.csv("data/Climate Descriptions.csv", row.names = 1, fileEncoding="RFC-4180")
 colnames(df_index) = c("Climate","1st","2nd","3rd","Climate Name","Description")
 df_wind = read.csv("data/wind english.csv", header = TRUE, check.names = FALSE, row.names = 1)
+
+df_780 = read.csv("data/city climate 781.csv")
+df_780 <- df_780[order(df_780$Koppen.climate), ]
+df_780$lat <- ifelse(df_780$latitude..degree. > 0, 
+                 paste(as.character(df_780$latitude..degree.), "\u00B0","N"), 
+                 paste(as.character(-df_780$latitude..degree.), "\u00B0","S"))
+
+df_780$long <- ifelse(df_780$longitude..degree. > 0, 
+                  paste(as.character(df_780$longitude..degree.), "\u00B0","E"), 
+                  paste(as.character(-df_780$longitude..degree.), "\u00B0","W"))
+
+df_44351 = read.csv("data/44351 cities climates.csv")
+# df_44351 <- df_44351[order(df_44351$Koppen.climate), ]
+df_44351$lat <- ifelse(df_44351$latitude > 0, 
+                     paste(as.character(df_44351$latitude), "\u00B0","N"), 
+                     paste(as.character(-df_44351$latitude), "\u00B0","S"))
+
+df_44351$long <- ifelse(df_44351$longitude > 0, 
+                      paste(as.character(df_44351$longitude), "\u00B0","E"), 
+                      paste(as.character(-df_44351$longitude), "\u00B0","W"))
+
+region_list <- c()
+unique_regions <- unique(df_44351$Region)
+for (i in unique_regions) {
+  split_items <- unlist(strsplit(i, ", +"))
+  for (j in split_items) {
+    if (!(j %in% region_list)) {
+      region_list <- c(region_list, j)
+    }
+  }
+}
+region_list <- sort(region_list)
 
 importance_vec = c(" is equally important as ", 
                    " is slightly more important than ",
